@@ -34,19 +34,17 @@ public sealed partial class LucieFace : UserControl
     {
         InitializeComponent();
 
-        // Fondus doux entre les expressions
-        foreach (var layer in Layers)
-            layer.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) };
-
+        // Fondus doux entre les expressions (faits à la main : les transitions implicites
+        // de WinUI sont interdites sur des éléments qui ont déjà une RenderTransform).
+        _layers = new UIElement[] { Blush, Headphones, NormalEyes, RoundEyes, HappyEyes, SleepEyes, MouthSmile, MouthBig, MouthO };
         ApplyMood();
+        foreach (var layer in _layers) layer.Opacity = _targets[layer]; // état de départ sans fondu
         Loaded += (_, _) => CompositionTarget.Rendering += OnFrame;
         Unloaded += (_, _) => CompositionTarget.Rendering -= OnFrame;
     }
 
-    private UIElement[] Layers => new UIElement[]
-    {
-        Blush, Headphones, NormalEyes, RoundEyes, HappyEyes, SleepEyes, MouthSmile, MouthBig, MouthO
-    };
+    private readonly UIElement[] _layers;
+    private readonly Dictionary<UIElement, double> _targets = new();
 
     public FaceMood Mood
     {
@@ -64,7 +62,7 @@ public sealed partial class LucieFace : UserControl
 
     private void ApplyMood()
     {
-        static void Fade(UIElement e, bool on) => e.Opacity = on ? 1 : 0;
+        void Fade(UIElement e, bool on) => _targets[e] = on ? 1 : 0;
 
         Fade(NormalEyes, _mood == FaceMood.Idle);
         Fade(RoundEyes, _mood is FaceMood.Wow or FaceMood.Listening);
@@ -91,9 +89,22 @@ public sealed partial class LucieFace : UserControl
         double dt = Math.Min(0.1, now - _last);
         _last = now;
 
+        UpdateFades(dt);
         UpdateGaze(now, dt);
         UpdateBlink(now);
         UpdateBody(now);
+    }
+
+    private void UpdateFades(double dt)
+    {
+        double step = Math.Min(1, dt * 12);
+        foreach (var layer in _layers)
+        {
+            double target = _targets[layer];
+            double current = layer.Opacity;
+            if (Math.Abs(target - current) < 0.01) { if (current != target) layer.Opacity = target; continue; }
+            layer.Opacity = current + (target - current) * step;
+        }
     }
 
     private void UpdateGaze(double now, double dt)
