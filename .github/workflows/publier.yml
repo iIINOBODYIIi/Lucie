@@ -37,6 +37,17 @@ jobs:
           msbuild $projet.FullName /restore /t:Publish /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:SelfContained=true "/p:PublishDir=$PWD/publish/Lucie/" /v:minimal
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Ajouter les fichiers d'interface
+        shell: pwsh
+        run: |
+          $build = Get-ChildItem -Recurse -Filter Lucie.exe | Where-Object { $_.FullName -match '\\bin\\' } | Select-Object -First 1
+          if (-not $build) { Write-Error "Dossier de compilation introuvable"; exit 1 }
+          Write-Host "Copie depuis : $($build.DirectoryName)"
+          Copy-Item "$($build.DirectoryName)\*" publish/Lucie -Recurse -Force
+          $pri = Get-ChildItem publish/Lucie -Filter *.pri
+          if (-not $pri) { Write-Error "Fichier .pri manquant : Lucie ne pourra pas s'afficher"; exit 1 }
+          $pri | ForEach-Object { Write-Host "OK : $($_.Name)" }
+
       - name: Creer le zip
         shell: pwsh
         run: |
