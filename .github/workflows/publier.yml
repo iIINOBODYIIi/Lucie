@@ -1,0 +1,43 @@
+name: Publier Lucie
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Numéro de version (ex. v1.0.0)"
+        required: true
+        default: "v1.0.0"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publier:
+    runs-on: windows-latest
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compiler Lucie
+        run: dotnet publish Lucie/Lucie.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o publish/Lucie
+
+      - name: Créer le zip
+        shell: pwsh
+        run: |
+          if (Test-Path publish/Lucie/VoiceModel/vosk-model-fr) { Remove-Item -Recurse -Force publish/Lucie/VoiceModel/vosk-model-fr }
+          Compress-Archive -Path publish/Lucie -DestinationPath Lucie-Windows-x64.zip -Force
+
+      - name: Mettre en ligne (Release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
+          name: Lucie ${{ github.event.inputs.version || github.ref_name }}
+          files: Lucie-Windows-x64.zip
+          generate_release_notes: true
