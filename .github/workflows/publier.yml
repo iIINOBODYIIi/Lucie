@@ -25,13 +25,17 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Installer MSBuild de Visual Studio
+        uses: microsoft/setup-msbuild@v2
+
       - name: Compiler Lucie
         shell: pwsh
         run: |
           $projet = Get-ChildItem -Recurse -Filter Lucie.csproj | Select-Object -First 1
           if (-not $projet) { Write-Error "Lucie.csproj introuvable"; exit 1 }
           Write-Host "Projet trouve : $($projet.FullName)"
-          dotnet publish $projet.FullName -c Release -r win-x64 --self-contained true -p:Platform=x64 -o publish/Lucie
+          msbuild $projet.FullName /restore /t:Publish /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:SelfContained=true "/p:PublishDir=$PWD/publish/Lucie/" /v:minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Creer le zip
         shell: pwsh
