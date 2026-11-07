@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Numéro de version (ex. v1.0.0)"
+        description: "Numero de version (ex. v1.0.0)"
         required: true
         default: "v1.0.0"
   push:
@@ -17,7 +17,7 @@ jobs:
   publier:
     runs-on: windows-latest
     steps:
-      - name: Récupérer le code
+      - name: Recuperer le code
         uses: actions/checkout@v4
 
       - name: Installer .NET 8
@@ -25,21 +25,21 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      -      - name: Compiler Lucie
+      - name: Compiler Lucie
         shell: pwsh
         run: |
           $projet = Get-ChildItem -Recurse -Filter Lucie.csproj | Select-Object -First 1
-          if (-not $projet) { Write-Error "Lucie.csproj introuvable dans le dépôt"; exit 1 }
-          Write-Host "Projet trouvé : $($projet.FullName)"
+          if (-not $projet) { Write-Error "Lucie.csproj introuvable"; exit 1 }
+          Write-Host "Projet trouve : $($projet.FullName)"
           dotnet publish $projet.FullName -c Release -r win-x64 --self-contained true -p:Platform=x64 -o publish/Lucie
 
-      - name: Créer le zip
+      - name: Creer le zip
         shell: pwsh
         run: |
           if (Test-Path publish/Lucie/VoiceModel/vosk-model-fr) { Remove-Item -Recurse -Force publish/Lucie/VoiceModel/vosk-model-fr }
           Compress-Archive -Path publish/Lucie -DestinationPath Lucie-Windows-x64.zip -Force
 
-      - name: Mettre en ligne (Release)
+      - name: Mettre en ligne
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version || github.ref_name }}
