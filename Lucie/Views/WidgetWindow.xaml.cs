@@ -878,6 +878,10 @@ public sealed partial class WidgetWindow : Window
             menu.Items.Add(player);
         }
 
+        var hide = new MenuFlyoutItem { Text = "Masquer le widget", Icon = new FontIcon { Glyph = "\uED1A" } };
+        hide.Click += (_, _) => SetHidden(true);
+        menu.Items.Add(hide);
+
         var settings = new MenuFlyoutItem { Text = "Paramètres…", Icon = new FontIcon { Glyph = "" } };
         settings.Click += (_, _) => App.Current.OpenSettings();
         menu.Items.Add(settings);
