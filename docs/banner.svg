@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 420" width="1280" height="420" font-family="Segoe UI, Inter, Arial, sans-serif">
+  <defs>
+    <filter id="blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="60"/></filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4"/></filter>
+    <linearGradient id="pill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26272B"/>
+      <stop offset="0.38" stop-color="#0B0B0D"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="420" rx="28" fill="#0E1016"/>
+  <circle cx="230" cy="80" r="170" fill="#3B5BDB" opacity="0.45" filter="url(#blur)"/>
+  <circle cx="1060" cy="360" r="190" fill="#7048E8" opacity="0.35" filter="url(#blur)"/>
+  <circle cx="700" cy="40" r="140" fill="#E64980" opacity="0.18" filter="url(#blur)"/>
+
+  <!-- 1. Repos -->
+  <g transform="translate(70,130)">
+    <rect width="230" height="116" rx="58" fill="url(#pill)"/>
+    <rect x="1" y="1" width="228" height="114" rx="57" fill="none" stroke="url(#rim)" stroke-width="2"/>
+    <g transform="translate(59,22) scale(2.0)">
+      <rect x="16.5" y="14" width="6.5" height="12" rx="3.25" fill="#FFFFFF" opacity="0.6" filter="url(#glow)"/>
+      <rect x="33" y="14" width="6.5" height="12" rx="3.25" fill="#FFFFFF" opacity="0.6" filter="url(#glow)"/>
+      <rect x="16.5" y="14" width="6.5" height="12" rx="3.25" fill="#EEF1F7"/>
+      <rect x="33" y="14" width="6.5" height="12" rx="3.25" fill="#EEF1F7"/>
+    </g>
+    <text x="115" y="160" text-anchor="middle" fill="#EEF1F7" font-size="22" font-weight="600">Idle</text>
+    <text x="115" y="188" text-anchor="middle" fill="#A9B0BF" font-size="16">blinks and looks around</text>
+  </g>
+
+  <!-- 2. Waouh -->
+  <g transform="translate(360,130)">
+    <rect width="230" height="116" rx="58" fill="url(#pill)"/>
+    <rect x="1" y="1" width="228" height="114" rx="57" fill="none" stroke="#9AB8FF" stroke-width="2.5"/>
+    <g transform="translate(59,22) scale(2.0)">
+      <ellipse cx="13" cy="27" rx="4" ry="2.2" fill="#FF9EB5" opacity="0.45"/>
+      <ellipse cx="43" cy="27" rx="4" ry="2.2" fill="#FF9EB5" opacity="0.45"/>
+      <circle cx="20" cy="19" r="5.8" fill="#EEF1F7"/>
+      <circle cx="36" cy="19" r="5.8" fill="#EEF1F7"/>
+      <circle cx="22.4" cy="18" r="2.2" fill="#1E212B"/>
+      <circle cx="38.4" cy="18" r="2.2" fill="#1E212B"/>
+      <circle cx="22.9" cy="17.2" r="0.75" fill="#FFFFFF"/>
+      <circle cx="38.9" cy="17.2" r="0.75" fill="#FFFFFF"/>
+      <ellipse cx="28" cy="31" rx="2.6" ry="3" fill="#EEF1F7"/>
+    </g>
+    <text x="115" y="160" text-anchor="middle" fill="#EEF1F7" font-size="22" font-weight="600">“Wow!”</text>
+    <text x="115" y="188" text-anchor="middle" fill="#A9B0BF" font-size="16">follows your mouse</text>
+  </g>
+
+  <!-- 3. Musique -->
+  <g transform="translate(650,130)">
+    <rect width="230" height="116" rx="58" fill="url(#pill)"/>
+    <rect x="1" y="1" width="228" height="114" rx="57" fill="none" stroke="url(#rim)" stroke-width="2"/>
+    <g transform="translate(59,22) scale(2.0) rotate(-4 28 22)">
+      <path d="M11.5 22 L11.5 18 A16.5 15 0 0 1 44.5 18 L44.5 22" fill="none" stroke="#EEF1F7" stroke-width="2.8" stroke-linecap="round"/>
+      <rect x="7" y="18.5" width="8" height="13" rx="4" fill="#EEF1F7"/>
+      <rect x="41" y="18.5" width="8" height="13" rx="4" fill="#EEF1F7"/>
+      <ellipse cx="14" cy="27" rx="4" ry="2.2" fill="#FF9EB5" opacity="0.45"/>
+      <ellipse cx="42" cy="27" rx="4" ry="2.2" fill="#FF9EB5" opacity="0.45"/>
+      <path d="M16.5 22 Q19.75 17 23 22" fill="none" stroke="#EEF1F7" stroke-width="2.3" stroke-linecap="round"/>
+      <path d="M33 22 Q36.25 17 39.5 22" fill="none" stroke="#EEF1F7" stroke-width="2.3" stroke-linecap="round"/>
+      <path d="M24.5 30.5 Q28 33.5 31.5 30.5" fill="none" stroke="#EEF1F7" stroke-width="2.3" stroke-linecap="round"/>
+    </g>
+    <text x="115" y="160" text-anchor="middle" fill="#EEF1F7" font-size="22" font-weight="600">Music</text>
+    <text x="115" y="188" text-anchor="middle" fill="#A9B0BF" font-size="16">puts her headphones on</text>
+  </g>
+
+  <!-- 4. Sommeil -->
+  <g transform="translate(940,130)">
+    <rect width="270" height="116" rx="58" fill="url(#pill)" opacity="0.85"/>
+    <rect x="1" y="1" width="268" height="114" rx="57" fill="none" stroke="url(#rim)" stroke-width="2"/>
+    <g transform="translate(55,22) scale(2.0) rotate(-3 28 22)">
+      <path d="M16.5 20.5 Q19.75 24.5 23 20.5" fill="none" stroke="#EEF1F7" stroke-width="2.3" stroke-linecap="round"/>
+      <path d="M33 20.5 Q36.25 24.5 39.5 20.5" fill="none" stroke="#EEF1F7" stroke-width="2.3" stroke-linecap="round"/>
+    </g>
+    <text x="196" y="74" fill="#C9D2E6" font-size="15" font-weight="600" opacity="0.5">z</text>
+    <text x="206" y="58" fill="#C9D2E6" font-size="19" font-weight="600" opacity="0.75">z</text>
+    <text x="218" y="40" fill="#C9D2E6" font-size="24" font-weight="600" opacity="0.9">Z</text>
+    <text x="135" y="160" text-anchor="middle" fill="#EEF1F7" font-size="22" font-weight="600">Asleep</text>
+    <text x="135" y="188" text-anchor="middle" fill="#A9B0BF" font-size="16">when your PC is idle</text>
+  </g>
+
+  <text x="640" y="72" text-anchor="middle" fill="#EEF1F7" font-size="34" font-weight="700">Lucie lives on your desktop</text>
+</svg>

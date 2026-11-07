@@ -71,7 +71,7 @@ public sealed partial class LucieFace : UserControl
         Fade(Headphones, _mood == FaceMood.Music);
         Fade(Blush, _mood is FaceMood.Done or FaceMood.Music or FaceMood.Wow);
 
-        Fade(MouthSmile, _mood is FaceMood.Idle or FaceMood.Music);
+        Fade(MouthSmile, _mood == FaceMood.Music); // au repos : juste les yeux, comme l'icône
         Fade(MouthBig, _mood == FaceMood.Done);
         Fade(MouthO, _mood is FaceMood.Wow or FaceMood.Listening);
         // Sommeil : pas de bouche du tout.

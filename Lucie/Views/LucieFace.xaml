@@ -49,6 +49,11 @@
                             <TranslateTransform x:Name="NormalEyesShift" />
                         </TransformGroup>
                     </Canvas.RenderTransform>
+                    <!-- Halo lumineux autour des yeux -->
+                    <Rectangle Canvas.Left="13.5" Canvas.Top="11" Width="12.5" Height="18" RadiusX="6.25" RadiusY="6.25" Fill="#FFFFFF" Opacity="0.07" />
+                    <Rectangle Canvas.Left="30" Canvas.Top="11" Width="12.5" Height="18" RadiusX="6.25" RadiusY="6.25" Fill="#FFFFFF" Opacity="0.07" />
+                    <Rectangle Canvas.Left="15" Canvas.Top="12.5" Width="9.5" Height="15" RadiusX="4.75" RadiusY="4.75" Fill="#FFFFFF" Opacity="0.12" />
+                    <Rectangle Canvas.Left="31.5" Canvas.Top="12.5" Width="9.5" Height="15" RadiusX="4.75" RadiusY="4.75" Fill="#FFFFFF" Opacity="0.12" />
                     <Rectangle Canvas.Left="16.5" Canvas.Top="14" Width="6.5" Height="12" RadiusX="3.25" RadiusY="3.25" Fill="#EEF1F7" />
                     <Rectangle Canvas.Left="33" Canvas.Top="14" Width="6.5" Height="12" RadiusX="3.25" RadiusY="3.25" Fill="#EEF1F7" />
                 </Canvas>

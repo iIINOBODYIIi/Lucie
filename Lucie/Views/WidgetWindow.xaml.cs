@@ -194,19 +194,21 @@ public sealed partial class WidgetWindow : Window
 
         // Transparence du verre
         double t = Math.Clamp(s.WidgetTransparency / 100.0, 0, 0.9);
-        var tint = ColorHelper.FromArgb(0xFF, 0x1E, 0x21, 0x2B);
         if (_acrylic is not null)
         {
-            _acrylic.TintColor = tint;
-            _acrylic.TintOpacity = (float)Math.Clamp(0.85 - t * 0.8, 0.1, 0.95);
-            _acrylic.LuminosityOpacity = (float)Math.Clamp(0.95 - t * 0.6, 0.35, 1);
-            _acrylic.FallbackColor = tint;
-            Pill.Background = new SolidColorBrush(Colors.Transparent);
+            // Derrière le noir, un verre flouté : visible seulement si on rend le widget transparent.
+            _acrylic.TintColor = Colors.Black;
+            _acrylic.TintOpacity = 0.6f;
+            _acrylic.LuminosityOpacity = 0.6f;
+            _acrylic.FallbackColor = Colors.Black;
         }
-        else
-        {
-            Pill.Background = new SolidColorBrush(ColorHelper.FromArgb((byte)(255 * (1 - t * 0.5)), 0x1E, 0x21, 0x2B));
-        }
+
+        // Gélule noire légèrement bombée, comme l'icône
+        var body = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), Opacity = 1 - t * 0.75 };
+        body.GradientStops.Add(new GradientStop { Color = ColorHelper.FromArgb(0xFF, 0x26, 0x27, 0x2B), Offset = 0 });
+        body.GradientStops.Add(new GradientStop { Color = ColorHelper.FromArgb(0xFF, 0x0B, 0x0B, 0x0D), Offset = 0.38 });
+        body.GradientStops.Add(new GradientStop { Color = Colors.Black, Offset = 1 });
+        Pill.Background = body;
 
         // Le widget « s'accroche » au bord choisi : il grandit vers l'intérieur de l'écran.
         if (s.Position == WidgetPosition.Custom)
