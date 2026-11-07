@@ -39,6 +39,7 @@ public sealed partial class WidgetWindow : Window
     private readonly DispatcherTimer _dragTimer = new() { Interval = TimeSpan.FromMilliseconds(8) };
     private readonly HotkeyService _hotkeys;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly Win32.SubclassProc _frameProc;   // gardé en mémoire tant que la fenêtre vit
 
     private IRandomAccessStreamReference? _shownThumbnail;
 
@@ -80,6 +81,10 @@ public sealed partial class WidgetWindow : Window
 
         _hwnd = WindowNative.GetWindowHandle(this);
         _dispatcher = DispatcherQueue.GetForCurrentThread();
+
+        // Toute la fenêtre est « contenu » : Windows ne réserve aucun pixel pour un cadre.
+        _frameProc = FrameProc;
+        Win32.SetWindowSubclass(_hwnd, _frameProc, (UIntPtr)2, IntPtr.Zero);
 
         SetupChrome();
         SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
@@ -132,6 +137,14 @@ public sealed partial class WidgetWindow : Window
         // Paramètres
         App.Settings.Changed += (_, _) => _dispatcher.TryEnqueue(ApplySettings);
 
+        // Quand l'affichage est prêt (ou change d'écran / de mise à l'échelle), on recale tout.
+        Root.Loaded += (_, _) =>
+        {
+            if (Root.XamlRoot is not null)
+                Root.XamlRoot.Changed += (_, _) => _dispatcher.TryEnqueue(ApplySettings);
+            ApplySettings();
+        };
+
         _tick.Tick += OnTick;
         _tick.Start();
         CompositionTarget.Rendering += OnRender;
@@ -160,6 +173,27 @@ public sealed partial class WidgetWindow : Window
 
         AppWindow.IsShownInSwitchers = false;   // pas dans Alt+Tab ni la barre des tâches
         Win32.StripFrame(_hwnd);
+        Win32.MakeFrameless(_hwnd);
+    }
+
+    private IntPtr FrameProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam, UIntPtr id, IntPtr refData)
+    {
+        // Zone cliente = fenêtre entière (aucune bordure, même invisible).
+        if (msg == Win32.WM_NCCALCSIZE && wParam != IntPtr.Zero) return IntPtr.Zero;
+        return Win32.DefSubclassProc(hWnd, msg, wParam, lParam);
+    }
+
+    /// <summary>
+    /// Échelle réellement utilisée pour dessiner le contenu (125 %, 150 %…),
+    /// pour que fenêtre, découpe et dessin aient exactement la même taille.
+    /// </summary>
+    private double Scale
+    {
+        get
+        {
+            double s = Root.XamlRoot?.RasterizationScale ?? 0;
+            return s > 0 ? s : Win32.ScaleFor(_hwnd);
+        }
     }
 
     private double SizeFactor => App.Settings.Current.Size switch
@@ -244,7 +278,7 @@ public sealed partial class WidgetWindow : Window
     private void PlaceWindow(double widthDip, double heightDip)
     {
         var s = App.Settings.Current;
-        double scale = Win32.ScaleFor(_hwnd);
+        double scale = Scale;
         int w = (int)Math.Ceiling((widthDip + 2 * Edge) * scale);
         int h = (int)Math.Ceiling((heightDip + 2 * Edge) * scale);
         const int edge = 16; // petit espace avec le bord de l'écran
@@ -296,8 +330,10 @@ public sealed partial class WidgetWindow : Window
         double w = _curW, h = _curH;
         if (w <= 0 || h <= 0) return;
 
-        double scale = Win32.ScaleFor(_hwnd);
-        double winW = _winW + 2 * Edge, winH = _winH + 2 * Edge;
+        double scale = Scale;
+        var client = AppWindow.ClientSize;   // taille réelle de la fenêtre, en pixels
+        double winW = client.Width > 0 ? client.Width / scale : _winW + 2 * Edge;
+        double winH = client.Height > 0 ? client.Height / scale : _winH + 2 * Edge;
 
         // Position de la gélule dans la fenêtre, selon l'alignement
         double x = PillHost.HorizontalAlignment switch
@@ -579,7 +615,7 @@ public sealed partial class WidgetWindow : Window
 
         if (!_dragging && Win32.GetCursorPos(out var cursor) && PillHost.ActualWidth > 0)
         {
-            double scale = Win32.ScaleFor(_hwnd);
+            double scale = Scale;
             var pos = AppWindow.Position;
 
             // Rectangle du widget à l'écran
@@ -737,7 +773,7 @@ public sealed partial class WidgetWindow : Window
     private void SaveDraggedPosition()
     {
         var s = App.Settings.Current;
-        double scale = Win32.ScaleFor(_hwnd);
+        double scale = Scale;
         var (bw, bh) = BaseSizePx(scale);
         var pos = AppWindow.Position;
 

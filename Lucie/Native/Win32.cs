@@ -212,8 +212,42 @@ internal static class Win32
         DwmSetWindowAttribute(hwnd, 33, ref doNotRound, sizeof(int));
         int noColor = unchecked((int)0xFFFFFFFE); // DWMWA_BORDER_COLOR = aucune
         DwmSetWindowAttribute(hwnd, 34, ref noColor, sizeof(int));
-        int disabled = 1;                        // DWMWA_NCRENDERING_POLICY = désactivé (pas d'ombre)
-        DwmSetWindowAttribute(hwnd, 2, ref disabled, sizeof(int));
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int index, IntPtr value);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    public const uint WM_NCCALCSIZE = 0x0083;
+
+    /// <summary>
+    /// Transforme la fenêtre en simple « calque » sans aucun cadre (ni bordure, ni barre de titre,
+    /// ni trait d'un pixel) : tout ce qui est affiché, c'est le contenu.
+    /// </summary>
+    public static void MakeFrameless(IntPtr hwnd)
+    {
+        const long WS_CAPTION = 0x00C00000, WS_THICKFRAME = 0x00040000, WS_SYSMENU = 0x00080000,
+                   WS_MINIMIZEBOX = 0x00020000, WS_MAXIMIZEBOX = 0x00010000, WS_BORDER = 0x00800000,
+                   WS_DLGFRAME = 0x00400000;
+        const long WS_POPUP = unchecked((long)0x80000000);
+        const long WS_EX_DLGMODALFRAME = 0x1, WS_EX_WINDOWEDGE = 0x100, WS_EX_CLIENTEDGE = 0x200, WS_EX_STATICEDGE = 0x20000;
+
+        long style = GetWindowLongPtr(hwnd, -16).ToInt64();
+        style &= ~(WS_CAPTION | WS_THICKFRAME | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_BORDER | WS_DLGFRAME);
+        style |= WS_POPUP;
+        SetWindowLongPtr(hwnd, -16, new IntPtr(style));
+
+        long ex = GetWindowLongPtr(hwnd, -20).ToInt64();
+        ex &= ~(WS_EX_DLGMODALFRAME | WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
+        SetWindowLongPtr(hwnd, -20, new IntPtr(ex));
+
+        // SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED
+        SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0, 0x0002 | 0x0001 | 0x0004 | 0x0010 | 0x0020);
     }
 
     /// <summary>Facteur d'échelle de l'écran (1.0 = 100 %, 1.5 = 150 %…).</summary>
