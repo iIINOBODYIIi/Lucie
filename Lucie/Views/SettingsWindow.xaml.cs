@@ -135,6 +135,111 @@ public sealed partial class SettingsWindow : Window
         SecApps.Visibility = Show(tag == "apps");
         SecCommands.Visibility = Show(tag == "commands");
         SecAirPlay.Visibility = Show(tag == "airplay");
+        SecDiscord.Visibility = Show(tag == "discord");
+        if (tag == "discord") UpdateDiscordStatus();
+    }
+
+    // ───────────── Discord connecté ─────────────
+
+    private void UpdateDiscordStatus()
+    {
+        var d = App.Discord;
+        DiscordIdBox.Text = d.ClientId;
+        DiscordEnabledSwitch.IsOn = d.Enabled;
+
+        Windows.UI.Color dot;
+        if (d.IsConnected)
+        {
+            dot = Microsoft.UI.ColorHelper.FromArgb(255, 52, 211, 153);
+            DiscordStatus.Text = $"Connectée à Discord{(d.UserName is { Length: > 0 } n ? $" ({n})" : "")}";
+            DiscordDetail.Text = "Micro, sourdine et vocal passent directement par Discord.";
+        }
+        else if (d.IsAuthorized)
+        {
+            dot = Microsoft.UI.ColorHelper.FromArgb(255, 245, 158, 11);
+            DiscordStatus.Text = "Autorisée, en attente de Discord";
+            DiscordDetail.Text = d.LastError ?? "Lucie se reconnecte toute seule dès que Discord est ouvert.";
+        }
+        else
+        {
+            dot = Microsoft.UI.ColorHelper.FromArgb(255, 156, 163, 175);
+            DiscordStatus.Text = d.HasCredentials ? "Pas encore autorisée" : "Pas encore connectée";
+            DiscordDetail.Text = d.LastError ?? "Suis les étapes ci-dessous.";
+        }
+        DiscordDot.Fill = new SolidColorBrush(dot);
+    }
+
+    private void DiscordPortal_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://discord.com/developers/applications") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    private async void DiscordConnect_Click(object sender, RoutedEventArgs e)
+    {
+        var id = DiscordIdBox.Text.Trim();
+        if (!id.All(char.IsDigit) || id.Length < 15)
+        {
+            DiscordDetail.Text = "Le Client ID est une longue suite de chiffres (onglet OAuth2 du portail).";
+            return;
+        }
+        App.Discord.SetCredentials(id, DiscordSecretBox.Password);
+        DiscordSecretBox.Password = "";
+
+        DiscordConnectButton.IsEnabled = false;
+        DiscordRing.IsActive = true;
+        DiscordStatus.Text = "Regarde Discord : clique sur « Autoriser »…";
+        DiscordDetail.Text = "";
+        try
+        {
+            bool ok = await App.Discord.AuthorizeAsync();
+            if (ok) App.Sounds.PlayDone(); else App.Sounds.PlayError();
+        }
+        finally
+        {
+            DiscordConnectButton.IsEnabled = true;
+            DiscordRing.IsActive = false;
+            UpdateDiscordStatus();
+        }
+    }
+
+    private void DiscordForget_Click(object sender, RoutedEventArgs e)
+    {
+        App.Discord.Forget();
+        DiscordSecretBox.Password = "";
+        UpdateDiscordStatus();
+    }
+
+    private void DiscordEnabled_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (App.Discord.Enabled != DiscordEnabledSwitch.IsOn) App.Discord.Enabled = DiscordEnabledSwitch.IsOn;
+    }
+
+    private async void DiscordTest_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string what } button) return;
+        var action = what switch
+        {
+            "mute" => DiscordVoiceAction.Mute,
+            "unmute" => DiscordVoiceAction.Unmute,
+            "deaf" => DiscordVoiceAction.Deafen,
+            "undeaf" => DiscordVoiceAction.Undeafen,
+            _ => DiscordVoiceAction.LeaveVoice
+        };
+        button.IsEnabled = false;
+        try
+        {
+            bool ok = await DiscordVoice.ExecuteAsync(action, App.Discord);
+            if (ok) App.Sounds.PlayDone(); else App.Sounds.PlayError();
+        }
+        finally
+        {
+            button.IsEnabled = true;
+            UpdateDiscordStatus();
+        }
     }
 
     /// <summary>Affiche une section (« airplay », « apps »…) et, pour AirPlay, un de ses onglets.</summary>

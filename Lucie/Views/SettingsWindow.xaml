@@ -68,6 +68,9 @@
                 <NavigationViewItem Content="Apparence" Tag="look">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE790;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Discord" Tag="discord">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE8BD;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="AirPlay" Tag="airplay">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE7F5;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -257,6 +260,79 @@
                                     <x:String>Bulle</x:String>
                                 </RadioButtons>
                                 <Button Content="Écouter un aperçu" Click="Preview_Click" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Discord connecté -->
+                    <StackPanel x:Name="SecDiscord" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Discord" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Connecte Lucie directement à ton Discord : elle coupe et réactive ton micro, met ou enlève la sourdine, et quitte le vocal, sans passer par les raccourcis clavier." />
+
+                        <!-- État -->
+                        <Border Style="{StaticResource Card}">
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Ellipse x:Name="DiscordDot" Width="10" Height="10" Fill="#FF9CA3AF" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock x:Name="DiscordStatus" Text="Pas encore connecté" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="DiscordDetail" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                                <ToggleSwitch x:Name="DiscordEnabledSwitch" Grid.Column="2" OnContent="Utilisé" OffContent="Pas utilisé"
+                                              Toggled="DiscordEnabled_Toggled" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Mise en place -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="14">
+                                <TextBlock Text="Mise en place (une seule fois, 2 minutes)" FontWeight="SemiBold" />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                                           Text="Discord n'autorise le contrôle du micro qu'aux applis enregistrées. Tu vas donc créer ta propre petite « application » Discord (gratuit, rien à publier) :" />
+                                <StackPanel Spacing="6">
+                                    <TextBlock TextWrapping="Wrap" Text="1. Ouvre le portail développeur Discord et connecte-toi avec ton compte Discord habituel." />
+                                    <TextBlock TextWrapping="Wrap" Text="2. Clique sur « New Application », appelle-la « Lucie », accepte les conditions puis « Create »." />
+                                    <TextBlock TextWrapping="Wrap" Text="3. À gauche, va dans « OAuth2 ». Copie le « Client ID ». Clique sur « Reset Secret » et copie le « Client Secret »." />
+                                    <TextBlock TextWrapping="Wrap" Text="4. Toujours dans « OAuth2 », section « Redirects » : clique « Add Redirect », écris http://localhost puis « Save Changes »." />
+                                    <TextBlock TextWrapping="Wrap" Text="5. Colle le Client ID et le Client Secret ci-dessous et clique sur « Connecter ». Discord affiche une fenêtre : clique sur « Autoriser »." />
+                                </StackPanel>
+                                <Button Content="Ouvrir le portail développeur Discord" Click="DiscordPortal_Click" />
+
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="DiscordIdBox" Header="Client ID" PlaceholderText="123456789012345678" />
+                                    <PasswordBox x:Name="DiscordSecretBox" Grid.Column="1" Header="Client Secret" PlaceholderText="(enregistré, laisse vide pour le garder)" />
+                                </Grid>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Name="DiscordConnectButton" Content="Connecter" Style="{StaticResource AccentButtonStyle}" Click="DiscordConnect_Click" />
+                                    <Button Content="Déconnecter" Click="DiscordForget_Click" />
+                                    <ProgressRing x:Name="DiscordRing" Width="20" Height="20" IsActive="False" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}" Text="Le Client Secret et la connexion sont chiffrés avec ton compte Windows et ne quittent pas ton PC (sauf vers Discord)." />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Essais -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Essayer" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Couper le micro" Tag="mute" Click="DiscordTest_Click" />
+                                    <Button Content="Réactiver le micro" Tag="unmute" Click="DiscordTest_Click" />
+                                    <Button Content="Sourdine" Tag="deaf" Click="DiscordTest_Click" />
+                                    <Button Content="Enlever la sourdine" Tag="undeaf" Click="DiscordTest_Click" />
+                                    <Button Content="Quitter le vocal" Tag="leave" Click="DiscordTest_Click" />
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                                           Text="À dire : « Coupe mon micro » · « Réactive mon micro » · « Mute » · « Mets-moi en sourdine » · « Enlève la sourdine » · « Quitte le vocal ». Si Discord est fermé, Lucie utilise les raccourcis clavier de la carte Discord à la place." />
                             </StackPanel>
                         </Border>
                     </StackPanel>

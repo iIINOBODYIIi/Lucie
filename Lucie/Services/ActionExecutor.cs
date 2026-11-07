@@ -67,6 +67,11 @@ public sealed class ActionExecutor
     /// <summary>Exécute tout ce que Lucie a compris.</summary>
     public async Task<bool> RunAsync(Intent intent)
     {
+        if (intent.Discord is DiscordVoiceAction discordAction)
+        {
+            if (await DiscordVoice.ExecuteAsync(discordAction, App.Discord)) return true;
+            return intent.Fallback is { } fallback && await RunAsync(fallback);   // Discord indisponible : raccourci clavier
+        }
         if (intent.AirPlay is AirPlayVoiceCommand airPlay) return AirPlayVoice.Execute(airPlay, App.AirPlay);
         if (intent.App is AppEntry app) return await OpenAppAsync(app);
         if (intent.Command is null) return false;

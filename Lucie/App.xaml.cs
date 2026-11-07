@@ -18,6 +18,8 @@ public partial class App : Application
     public static CommandInterpreter Interpreter { get; } = new();
     /// <summary>L'enceinte AirPlay (le moteur d'Onde).</summary>
     public static AirPlayService AirPlay { get; private set; } = null!;
+    /// <summary>Connexion directe à Discord (micro, sourdine, vocal).</summary>
+    public static DiscordService Discord { get; private set; } = null!;
 
     public static new App Current => (App)Application.Current;
     public static SolidColorBrush Accent => (SolidColorBrush)Application.Current.Resources["LucieAccent"];
@@ -59,6 +61,8 @@ public partial class App : Application
             Actions = new ActionExecutor(Media);
             Speech = new SpeechService(Settings);
             _dispatcher = DispatcherQueue.GetForCurrentThread();
+            Discord = new DiscordService();
+            if (Discord.Enabled && Discord.IsAuthorized) _ = Discord.EnsureConnectedAsync();   // en arrière-plan
 
             // Enceinte AirPlay : allumée seulement si on l'a activée dans les paramètres
             AirPlay = new AirPlayService();
@@ -138,6 +142,7 @@ public partial class App : Application
     public void Quit()
     {
         Speech?.Dispose();
+        Discord?.Dispose();
         try { _airPlayWindow?.Close(); } catch { }
         AirPlay?.Dispose();
         _settingsWindow?.Close();

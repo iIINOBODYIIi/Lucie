@@ -9,7 +9,7 @@ namespace Lucie.Services;
 /// ou le raccourci d'une appli (Command + ShortcutApp).
 /// </summary>
 public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null, Reaction? React = null,
-                            AirPlayVoiceCommand? AirPlay = null);
+                            AirPlayVoiceCommand? AirPlay = null, DiscordVoiceAction? Discord = null, Intent? Fallback = null);
 
 /// <summary>
 /// Transforme une phrase entendue en action.
@@ -37,6 +37,20 @@ public sealed class CommandInterpreter
     };
 
     public Intent? Interpret(string heard, AppSettings settings)
+    {
+        var intent = InterpretCore(heard, settings);
+
+        // Lucie est connectée à Discord : micro / sourdine / vocal passent par Discord directement.
+        // Si Discord ne répond pas, on se rabat sur ce qui aurait été fait sinon (raccourci clavier).
+        var discord = App.Discord;
+        if (discord is { Enabled: true, IsAuthorized: true } && DiscordVoice.Match(Normalize(heard)) is DiscordVoiceAction action
+            && intent?.AirPlay is null)
+            return new Intent(null, null, Discord: action, Fallback: intent);
+
+        return intent;
+    }
+
+    private Intent? InterpretCore(string heard, AppSettings settings)
     {
         string text = Normalize(heard);
         if (text.Length == 0) return null;

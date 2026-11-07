@@ -99,9 +99,13 @@ Lucie has no voice, so she answers with her face and a soft sound:
 
 When she doesn't understand, she tilts her head, puzzled.
 
-### Discord setup
+### Discord
 
-Discord has no default shortcut for mute and deafen. In **Discord › Settings › Keybinds**, add:
+**Recommended: connect Lucie to Discord** (*Settings › Discord*). She then mutes / unmutes your mic, deafens / undeafens and leaves the voice channel directly, through Discord's official local API — no keyboard shortcuts needed, and you can say exactly what you want (« Coupe mon micro » *or* « Réactive mon micro »).
+
+Discord only lets registered apps control your microphone, so you create your own free Discord application once (2 minutes, guided in the settings): copy its *Client ID* and *Client Secret*, add `http://localhost` as a redirect, click **Connect**, then **Authorize** in Discord. Credentials are encrypted with your Windows account.
+
+**Without connecting**, Lucie uses keyboard shortcuts instead. In **Discord › Settings › Keybinds**, add:
 
 | Discord action | Shortcut |
 | --- | --- |
