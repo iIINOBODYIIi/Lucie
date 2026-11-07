@@ -63,7 +63,12 @@ public partial class App : Application
             // Enceinte AirPlay : allumée seulement si on l'a activée dans les paramètres
             AirPlay = new AirPlayService();
             AirPlay.RunningChanged += () => _dispatcher.TryEnqueue(UpdateAirPlayWidget);
-            if (AirPlay.Settings.Enabled) AirPlay.Start();
+            if (AirPlay.Settings.Enabled)
+            {
+                // L'ancienne appli Onde lancée avec Windows gênerait l'enceinte de Lucie.
+                if (AirPlayService.IsOndeRunning()) AirPlayService.CloseOnde();
+                AirPlay.Start();
+            }
 
             _widget = new WidgetWindow();
             _widget.Activate();

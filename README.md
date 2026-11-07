@@ -32,6 +32,27 @@ Windows 10 / 11 · 64-bit · free · works offline
 - **👀 She feels alive**: she breathes, blinks, glances around, says *“wow”* and follows your mouse when it gets close, puts her headphones on when music plays, and falls asleep with little Z's when your PC is idle.
 - **🔒 Private**: speech recognition runs **100 % offline** on your PC. Nothing is sent to the internet.
 
+## 🔊 AirPlay speaker
+
+Lucie can turn your PC into an **AirPlay speaker** for your iPhone (this used to be the separate *Onde* app).
+
+- Turn it on in **Settings › AirPlay**. Your PC shows up in the AirPlay list on your iPhone.
+- A music widget shows the cover, title, artist and progress, with previous / play-pause / next buttons that control the iPhone.
+- **10-band equalizer** with 12 presets, and **concert mode** (reverb + echo) with 6 venues: club, concert hall, stadium, cathedral, acoustic live, canyon.
+- The widget can be **attached** (always on top), a normal **window**, or **pinned to the desktop**; hidden or shown; it hides itself during fullscreen games and videos; fully customisable (colours, glass / transparent background, opacity, corners, size).
+- Lucie's music commands (« Musique suivante », « Pause »…) control the iPhone while it's connected.
+
+| Say… | Lucie… |
+| --- | --- |
+| « Active le mode concert » · « Mode studio » · « Coupe le mode concert » | concert mode on / off |
+| « Mets l'ambiance stade » · « Mode concert cathédrale » | picks a venue |
+| « Augmente les basses » · « Baisse les aigus » · « Monte les médiums » | ±3 dB on the EQ |
+| « Égaliseur rock » · « Mets le son hip-hop » · « Remets l'égaliseur à plat » | EQ presets |
+| « Allume AirPlay » · « Coupe l'AirPlay » | speaker on / off |
+| « Affiche le widget AirPlay » · « Cache le widget AirPlay » | widget |
+
+> If your iPhone doesn't see the PC, click **Allow Lucie in the firewall** in Settings › AirPlay, and make sure your Wi-Fi network is set to *Private*.
+
 ## 🚀 Getting started
 
 1. **Download** `Lucie-Windows-x64.zip` from the [latest release](https://github.com/iIINOBODYIIi/Lucie/releases/latest).
