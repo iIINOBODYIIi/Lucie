@@ -43,6 +43,8 @@ public sealed partial class SettingsWindow : Window
         App.Speech.Heard += OnHeard;
         Closed += (_, _) =>
         {
+            // Rien n'est perdu : fermer la fenêtre enregistre automatiquement.
+            SaveAll(fromClose: true);
             App.Speech.LevelChanged -= OnLevel;
             App.Speech.Heard -= OnHeard;
         };
@@ -243,6 +245,7 @@ public sealed partial class SettingsWindow : Window
     private async void TestCommand_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: VoiceCommand c } button) return;
+        SaveAll(fromClose: false);
         await RunTestAsync(button, () => App.Actions.ExecuteAsync(c), c.Action == CommandAction.Shortcut);
     }
 
@@ -291,6 +294,7 @@ public sealed partial class SettingsWindow : Window
         if (sender is not Button { Tag: AppShortcut sc } button) return;
         var app = OwnerOf(sc);
         if (app is null) return;
+        SaveAll(fromClose: false);
         await RunTestAsync(button, () => App.Actions.RunAppShortcutAsync(app, sc.Keys), !app.FocusBeforeShortcut);
     }
 
@@ -360,7 +364,9 @@ public sealed partial class SettingsWindow : Window
 
     // ───────────── Enregistrer ─────────────
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private void Save_Click(object sender, RoutedEventArgs e) => SaveAll(fromClose: false);
+
+    private void SaveAll(bool fromClose)
     {
         var s = App.Settings.Current;
 
@@ -373,9 +379,13 @@ public sealed partial class SettingsWindow : Window
         var hotkey = HotkeyBox.Text.Trim();
         if (hotkey.Length > 0 && !KeyboardSimulator.TryParse(hotkey, out _))
         {
-            HotkeyHint.Text = "Raccourci non reconnu. Exemple : Ctrl+Alt+L";
-            Nav.SelectedItem = Nav.MenuItems[0];
-            return;
+            if (fromClose) hotkey = s.TalkHotkey;   // on garde l'ancien
+            else
+            {
+                HotkeyHint.Text = "Raccourci non reconnu. Exemple : Ctrl+Alt+L";
+                Nav.SelectedItem = Nav.MenuItems[0];
+                return;
+            }
         }
         s.TalkHotkey = hotkey;
 
@@ -420,7 +430,7 @@ public sealed partial class SettingsWindow : Window
         if (restartSpeech) App.Speech.Start();
 
         ModelInfo.IsOpen = !App.Speech.ModelAvailable;
-        SavedText.Text = $"Enregistré à {DateTime.Now:HH:mm}";
+        if (!fromClose) SavedText.Text = $"Enregistré à {DateTime.Now:HH:mm}";
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
