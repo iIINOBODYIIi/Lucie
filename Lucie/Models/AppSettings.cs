@@ -93,6 +93,9 @@ public sealed class AppSettings
     public WidgetPosition Position { get; set; } = WidgetPosition.TopRight;
     public double? CustomX { get; set; }   // centre du widget en pixels écran
     public double? CustomY { get; set; }
+    /// <summary>Côté vers lequel le widget grandit quand il est posé librement : -1 gauche/haut, 0 centre, 1 droite/bas.</summary>
+    public int AnchorX { get; set; }
+    public int AnchorY { get; set; }
     public WidgetSize Size { get; set; } = WidgetSize.Medium;
     public double WidgetTransparency { get; set; } = 45;   // 0 = opaque, 90 = très transparent
     public bool AutoPlayer { get; set; } = true;

@@ -3,7 +3,6 @@ using Lucie.Models;
 using Lucie.Native;
 using Lucie.Services;
 using Microsoft.UI;
-using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -15,7 +14,6 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Storage.Streams;
-using WinRT;
 using WinRT.Interop;
 
 namespace Lucie.Views;
@@ -28,16 +26,16 @@ public sealed partial class WidgetWindow : Window
 {
     private const double ExpandedWidth = 520;
     private const double ExpandedHeight = 112;
+    /// <summary>Petite marge transparente autour de la gélule : le bord arrondi reste lisse.</summary>
+    private const double Edge = 3;
     private static readonly TimeSpan ListenWatchdog = TimeSpan.FromSeconds(15);
 
     private readonly IntPtr _hwnd;
     private readonly DispatcherQueue _dispatcher;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    private readonly DispatcherTimer _dragTimer = new() { Interval = TimeSpan.FromMilliseconds(8) };
     private readonly HotkeyService _hotkeys;
-
-    private DesktopAcrylicController? _acrylic;
-    private SystemBackdropConfiguration? _backdropConfig;
     private Storyboard? _hostStory;
     private IRandomAccessStreamReference? _shownThumbnail;
 
@@ -77,11 +75,9 @@ public sealed partial class WidgetWindow : Window
 
         ApplySettings();
 
-        // Souris : rester appuyé + bouger = déplacer ; simple clic = parler à Lucie ; clic droit = menu.
+        // Souris : rester appuyé + bouger = déplacer où tu veux ; simple clic = parler à Lucie ; clic droit = menu.
         PillHost.PointerPressed += OnPointerPressed;
-        PillHost.PointerMoved += OnPointerMoved;
-        PillHost.PointerReleased += OnPointerReleased;
-        PillHost.PointerCaptureLost += OnPointerCaptureLost;
+        _dragTimer.Tick += OnDragTick;
         PillHost.RightTapped += (_, e) => { ShowMenu(); e.Handled = true; };
 
         // La forme de la fenêtre suit la taille du widget.
@@ -126,9 +122,8 @@ public sealed partial class WidgetWindow : Window
         Closed += (_, _) =>
         {
             _tick.Stop();
+            _dragTimer.Stop();
             _hotkeys.Dispose();
-            _acrylic?.Dispose();
-            _acrylic = null;
         };
     }
 
@@ -149,20 +144,14 @@ public sealed partial class WidgetWindow : Window
         Win32.StripFrame(_hwnd);
     }
 
-    /// <summary>Verre dépoli (acrylique) qui reste actif même quand Lucie n'a pas le focus.</summary>
+    /// <summary>
+    /// Fond de fenêtre entièrement transparent : seule la gélule est dessinée,
+    /// avec des bords arrondis lissés (pas de rectangle, pas de liseré).
+    /// </summary>
     private void SetupBackdrop()
     {
-        if (!DesktopAcrylicController.IsSupported()) return;
-
-        _backdropConfig = new SystemBackdropConfiguration { IsInputActive = true, Theme = SystemBackdropTheme.Dark };
-        _acrylic = new DesktopAcrylicController();
-        _acrylic.AddSystemBackdropTarget(this.As<Microsoft.UI.Composition.ICompositionSupportsSystemBackdrop>());
-        _acrylic.SetSystemBackdropConfiguration(_backdropConfig);
-
-        Activated += (_, _) =>
-        {
-            if (_backdropConfig is not null) _backdropConfig.IsInputActive = true;
-        };
+        SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
+        PillHost.Margin = new Thickness(Edge);
     }
 
     private void SetupTransitions()
@@ -192,19 +181,9 @@ public sealed partial class WidgetWindow : Window
     {
         var s = App.Settings.Current;
 
-        // Transparence du verre
+        // Gélule noire légèrement bombée, comme l'icône. La transparence laisse voir le bureau.
         double t = Math.Clamp(s.WidgetTransparency / 100.0, 0, 0.9);
-        if (_acrylic is not null)
-        {
-            // Derrière le noir, un verre flouté : visible seulement si on rend le widget transparent.
-            _acrylic.TintColor = Colors.Black;
-            _acrylic.TintOpacity = 0.6f;
-            _acrylic.LuminosityOpacity = 0.6f;
-            _acrylic.FallbackColor = Colors.Black;
-        }
-
-        // Gélule noire légèrement bombée, comme l'icône
-        var body = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), Opacity = 1 - t * 0.75 };
+        var body = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), Opacity = 1 - t * 0.6 };
         body.GradientStops.Add(new GradientStop { Color = ColorHelper.FromArgb(0xFF, 0x26, 0x27, 0x2B), Offset = 0 });
         body.GradientStops.Add(new GradientStop { Color = ColorHelper.FromArgb(0xFF, 0x0B, 0x0B, 0x0D), Offset = 0.38 });
         body.GradientStops.Add(new GradientStop { Color = Colors.Black, Offset = 1 });
@@ -213,8 +192,9 @@ public sealed partial class WidgetWindow : Window
         // Le widget « s'accroche » au bord choisi : il grandit vers l'intérieur de l'écran.
         if (s.Position == WidgetPosition.Custom)
         {
-            PillHost.HorizontalAlignment = HorizontalAlignment.Center;
-            PillHost.VerticalAlignment = VerticalAlignment.Center;
+            // Posé librement : il grandit du côté où il y a de la place.
+            PillHost.HorizontalAlignment = s.AnchorX < 0 ? HorizontalAlignment.Left : s.AnchorX > 0 ? HorizontalAlignment.Right : HorizontalAlignment.Center;
+            PillHost.VerticalAlignment = s.AnchorY < 0 ? VerticalAlignment.Top : s.AnchorY > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Center;
         }
         else
         {
@@ -263,8 +243,8 @@ public sealed partial class WidgetWindow : Window
     {
         var s = App.Settings.Current;
         double scale = Win32.ScaleFor(_hwnd);
-        int w = (int)Math.Ceiling(widthDip * scale);
-        int h = (int)Math.Ceiling(heightDip * scale);
+        int w = (int)Math.Ceiling((widthDip + 2 * Edge) * scale);
+        int h = (int)Math.Ceiling((heightDip + 2 * Edge) * scale);
         const int edge = 16; // petit espace avec le bord de l'écran
 
         int x, y;
@@ -273,8 +253,12 @@ public sealed partial class WidgetWindow : Window
         if (s.Position == WidgetPosition.Custom && s.CustomX is double cx && s.CustomY is double cy)
         {
             area = DisplayArea.GetFromPoint(new PointInt32((int)cx, (int)cy), DisplayAreaFallback.Nearest).WorkArea;
-            x = (int)(cx - w / 2.0);
-            y = (int)(cy - h / 2.0);
+
+            // (cx, cy) = centre du widget « au repos ». Il grandit du côté choisi
+            // pour que le bord collé à l'écran ne bouge pas.
+            var (bw, bh) = BaseSizePx(scale);
+            x = s.AnchorX < 0 ? (int)(cx - bw / 2) : s.AnchorX > 0 ? (int)(cx + bw / 2 - w) : (int)(cx - w / 2.0);
+            y = s.AnchorY < 0 ? (int)(cy - bh / 2) : s.AnchorY > 0 ? (int)(cy + bh / 2 - h) : (int)(cy - h / 2.0);
         }
         else
         {
@@ -302,9 +286,18 @@ public sealed partial class WidgetWindow : Window
             ? PillHost.TransformToVisual(Root).TransformBounds(new Rect(0, 0, w, h))
             : new Rect(0, 0, w, h);
 
+        // La découpe englobe la petite marge transparente : son bord reste invisible,
+        // c'est la gélule dessinée (lissée) qu'on voit.
         Win32.SetCapsuleRegion(_hwnd,
-            (int)Math.Round(bounds.X * scale), (int)Math.Round(bounds.Y * scale),
-            (int)Math.Round(bounds.Width * scale), (int)Math.Round(bounds.Height * scale));
+            (int)Math.Floor((bounds.X - Edge) * scale), (int)Math.Floor((bounds.Y - Edge) * scale),
+            (int)Math.Ceiling((bounds.Width + 2 * Edge) * scale), (int)Math.Ceiling((bounds.Height + 2 * Edge) * scale));
+    }
+
+    /// <summary>Taille de la fenêtre quand le widget est au repos (pixels physiques).</summary>
+    private (double W, double H) BaseSizePx(double scale)
+    {
+        double k = SizeFactor;
+        return ((104 * k + 2 * Edge) * scale, (64 * k + 2 * Edge) * scale);
     }
 
     private void AnimateHost(double w, double h, Action? done = null)
@@ -595,6 +588,8 @@ public sealed partial class WidgetWindow : Window
 
     // ───────────────────────── Souris ─────────────────────────
 
+    // Déplacement : on suit directement le bouton de la souris (plus fiable que les
+    // événements de la fenêtre, qui se perdent quand la fenêtre bouge sous le curseur).
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (!e.GetCurrentPoint(PillHost).Properties.IsLeftButtonPressed) return;
@@ -603,48 +598,54 @@ public sealed partial class WidgetWindow : Window
         _dragging = false;
         Win32.GetCursorPos(out _dragStartCursor);
         _dragStartWindow = AppWindow.Position;
-        PillHost.CapturePointer(e.Pointer);
+        _dragTimer.Start();
         e.Handled = true;
     }
 
-    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    private void OnDragTick(object? sender, object e)
     {
-        if (!_pressed || !Win32.GetCursorPos(out var now)) return;
+        if (!_pressed)
+        {
+            _dragTimer.Stop();
+            return;
+        }
 
+        if (!Win32.IsPrimaryButtonDown())
+        {
+            // Bouton relâché
+            _dragTimer.Stop();
+            _pressed = false;
+            if (_dragging) SaveDraggedPosition();
+            else ToggleListen();   // simple clic : parler à Lucie
+            _dragging = false;
+            return;
+        }
+
+        if (!Win32.GetCursorPos(out var now)) return;
         int dx = now.X - _dragStartCursor.X, dy = now.Y - _dragStartCursor.Y;
-        if (!_dragging && Math.Abs(dx) + Math.Abs(dy) > 6) _dragging = true;
+        if (!_dragging && Math.Abs(dx) + Math.Abs(dy) > 5) _dragging = true;
         if (_dragging) AppWindow.Move(new PointInt32(_dragStartWindow.X + dx, _dragStartWindow.Y + dy));
-        e.Handled = true;
     }
 
-    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_pressed) return;
-        _pressed = false;
-        PillHost.ReleasePointerCapture(e.Pointer);
-
-        if (_dragging) SaveDraggedPosition();
-        else ToggleListen();   // simple clic : parler à Lucie
-
-        _dragging = false;
-        e.Handled = true;
-    }
-
-    private void OnPointerCaptureLost(object sender, PointerRoutedEventArgs e)
-    {
-        if (_pressed && _dragging) SaveDraggedPosition();
-        _pressed = false;
-        _dragging = false;
-    }
-
+    /// <summary>Retient où tu as posé le widget, et de quel côté il doit grandir.</summary>
     private void SaveDraggedPosition()
     {
         var s = App.Settings.Current;
         var pos = AppWindow.Position;
         var size = AppWindow.Size;
+        double scale = Win32.ScaleFor(_hwnd);
+        var (bw, bh) = BaseSizePx(scale);
+
+        double cx = pos.X + size.Width / 2.0, cy = pos.Y + size.Height / 2.0;
+        var area = DisplayArea.GetFromPoint(new PointInt32((int)cx, (int)cy), DisplayAreaFallback.Nearest).WorkArea;
+
+        // Tiers de l'écran : à gauche il grandit vers la droite, à droite vers la gauche, au milieu des deux côtés.
+        s.AnchorX = cx < area.X + area.Width / 3.0 ? -1 : cx > area.X + area.Width * 2 / 3.0 ? 1 : 0;
+        s.AnchorY = cy < area.Y + area.Height / 3.0 ? -1 : cy > area.Y + area.Height * 2 / 3.0 ? 1 : 0;
+
         s.Position = WidgetPosition.Custom;
-        s.CustomX = pos.X + size.Width / 2.0;
-        s.CustomY = pos.Y + size.Height / 2.0;
+        s.CustomX = s.AnchorX < 0 ? pos.X + bw / 2 : s.AnchorX > 0 ? pos.X + size.Width - bw / 2 : cx;
+        s.CustomY = s.AnchorY < 0 ? pos.Y + bh / 2 : s.AnchorY > 0 ? pos.Y + size.Height - bh / 2 : cy;
         App.Settings.Save();
     }
 

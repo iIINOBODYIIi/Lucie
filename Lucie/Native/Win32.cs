@@ -186,6 +186,16 @@ internal static class Win32
     [DllImport("comctl32.dll")]
     public static extern IntPtr DefSubclassProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int vKey);
+
+    /// <summary>Le bouton principal de la souris est-il enfoncé (gère les souris de gaucher) ?</summary>
+    public static bool IsPrimaryButtonDown()
+    {
+        int vk = GetSystemMetrics(23 /* SM_SWAPBUTTON */) != 0 ? 0x02 : 0x01;
+        return (GetAsyncKeyState(vk) & 0x8000) != 0;
+    }
+
     /// <summary>Temps écoulé depuis la dernière action clavier/souris.</summary>
     public static TimeSpan GetIdleTime()
     {

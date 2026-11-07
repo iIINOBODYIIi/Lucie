@@ -23,6 +23,8 @@
     <!-- Interface WinUI 3 -->
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
+    <!-- Fond de fenêtre réellement transparent (bords du widget lissés) -->
+    <PackageReference Include="WinUIEx" Version="2.5.0" />
     <!-- Micro, sortie audio et sons synthétisés -->
     <PackageReference Include="NAudio" Version="2.2.1" />
     <!-- Reconnaissance vocale hors ligne -->

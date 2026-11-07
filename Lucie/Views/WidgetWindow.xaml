@@ -58,7 +58,7 @@
             <Border x:Name="Pill" CornerRadius="32" BorderThickness="1">
                 <Border.BorderBrush>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#40FFFFFF" Offset="0" />
+                        <GradientStop Color="#30FFFFFF" Offset="0" />
                         <GradientStop Color="#0FFFFFFF" Offset="1" />
                     </LinearGradientBrush>
                 </Border.BorderBrush>
