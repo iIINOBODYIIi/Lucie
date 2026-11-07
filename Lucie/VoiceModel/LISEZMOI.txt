@@ -1,0 +1,11 @@
+Place ici le modèle vocal français de Vosk, dans un dossier nommé exactement :
+
+    VoiceModel\vosk-model-fr\
+
+(il doit contenir les sous-dossiers "am", "conf", "graph"...)
+
+Téléchargement : https://alphacephei.com/vosk/models
+Modèle conseillé : vosk-model-small-fr-0.22 (environ 40 Mo)
+
+Autre emplacement possible (sans recompiler) :
+    %LocalAppData%\Lucie\VoiceModel\vosk-model-fr\

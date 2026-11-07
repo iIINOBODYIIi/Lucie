@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>Lucie</RootNamespace>
+    <AssemblyName>Lucie</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Interface WinUI 3 -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
+    <!-- Fenêtre transparente -->
+    <PackageReference Include="WinUIEx" Version="2.5.0" />
+    <!-- Micro, sortie audio et sons synthétisés -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    <!-- Reconnaissance vocale hors ligne -->
+    <PackageReference Include="Vosk" Version="0.3.38" />
+    <!-- Captures d'écran -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Le modèle vocal (voir README) est copié à côté de l'exe s'il est présent -->
+    <None Include="VoiceModel\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

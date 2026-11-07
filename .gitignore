@@ -1,0 +1,7 @@
+bin/
+obj/
+.vs/
+*.user
+AppPackages/
+# Le modèle vocal est lourd : on ne le met pas dans git
+Lucie/VoiceModel/vosk-model-fr/

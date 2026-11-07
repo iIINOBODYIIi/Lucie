@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Application
+    x:Class="Lucie.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- Couleur d'accent de Lucie (modifiable dans les paramètres) -->
+            <SolidColorBrush x:Key="LucieAccent" Color="#9AB8FF" />
+            <SolidColorBrush x:Key="LucieInk" Color="#EEF1F7" />
+            <SolidColorBrush x:Key="LucieMuted" Color="#A9B0BF" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

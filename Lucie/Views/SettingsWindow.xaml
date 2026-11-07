@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Lucie.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:Lucie.Models">
+
+    <Grid x:Name="Root">
+        <Grid.Resources>
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="Background" Value="#0DFFFFFF" />
+                <Setter Property="BorderBrush" Value="#17FFFFFF" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="14" />
+                <Setter Property="Padding" Value="22" />
+            </Style>
+            <Style x:Key="SectionTitle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="22" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Margin" Value="0,4,0,4" />
+            </Style>
+            <Style x:Key="Hint" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="Foreground" Value="{StaticResource LucieMuted}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+            <Style x:Key="PosButton" TargetType="ToggleButton">
+                <Setter Property="Width" Value="52" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="CornerRadius" Value="8" />
+            </Style>
+        </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barre de titre (déplaçable) -->
+        <Grid x:Name="TitleBar" Background="Transparent">
+            <TextBlock x:Name="WindowTitle" Text="Lucie — Paramètres" Margin="18,0,0,0" VerticalAlignment="Center"
+                       FontSize="12" Foreground="{StaticResource LucieMuted}" />
+        </Grid>
+
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Left" IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="False" IsPaneToggleButtonVisible="False" OpenPaneLength="240"
+                        SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.Resources>
+                <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewContentGridBorderBrush" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="#14000000" />
+            </NavigationView.Resources>
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Général" Tag="general">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Périphériques audio" Tag="audio">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE720;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Widget" Tag="widget">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE737;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Apparence" Tag="look">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE790;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Sons" Tag="sounds">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE767;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Commandes et raccourcis" Tag="commands">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE765;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <ScrollViewer Padding="32,8,32,32">
+                <Grid MaxWidth="820" HorizontalAlignment="Left">
+
+                    <!-- Général -->
+                    <StackPanel x:Name="SecGeneral" Spacing="14">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Général" />
+                        <InfoBar x:Name="ModelInfo" Severity="Warning" IsClosable="False"
+                                 Title="Modèle vocal manquant"
+                                 Message="Lucie ne peut pas encore t'entendre. Télécharge le modèle français (voir README)." />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="18">
+                                <StackPanel Spacing="6">
+                                    <TextBox x:Name="NameBox" Header="Nom de l'assistant" PlaceholderText="Lucie" MaxWidth="320"
+                                             HorizontalAlignment="Left" Width="320" TextChanged="NameBox_TextChanged" />
+                                    <TextBlock x:Name="WakeHint" Style="{StaticResource Hint}" />
+                                </StackPanel>
+                                <ToggleSwitch x:Name="StartupSwitch" Header="Lancer au démarrage de Windows" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Périphériques audio -->
+                    <StackPanel x:Name="SecAudio" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Périphériques audio" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="20">
+                                <StackPanel Spacing="6">
+                                    <ComboBox x:Name="MicBox" Header="Microphone" Width="360" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Le micro que Lucie écoute." />
+                                </StackPanel>
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Niveau du micro" />
+                                    <ProgressBar x:Name="LevelBar" Width="360" HorizontalAlignment="Left" Minimum="0" Maximum="1"
+                                                 Foreground="{StaticResource LucieAccent}" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Parle : la barre doit bouger. Le micro choisi s'applique à l'enregistrement." />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <ComboBox x:Name="OutBox" Header="Sortie audio" Width="360" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Casque ou enceintes pour les sons de Lucie." />
+                                </StackPanel>
+                                <Button Content="Tester le son" Click="TestSound_Click" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Widget -->
+                    <StackPanel x:Name="SecWidget" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Widget" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="20">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Position à l'écran" />
+                                    <Grid x:Name="PosGrid" HorizontalAlignment="Left" RowSpacing="6" ColumnSpacing="6" Padding="10"
+                                          CornerRadius="12" Background="#26000000">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition /><RowDefinition /><RowDefinition />
+                                        </Grid.RowDefinitions>
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="0" Grid.Row="0" Grid.Column="0" Click="Pos_Click" ToolTipService.ToolTip="En haut à gauche" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="1" Grid.Row="0" Grid.Column="1" Click="Pos_Click" ToolTipService.ToolTip="En haut au centre" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="2" Grid.Row="0" Grid.Column="2" Click="Pos_Click" ToolTipService.ToolTip="En haut à droite" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="3" Grid.Row="1" Grid.Column="0" Click="Pos_Click" ToolTipService.ToolTip="Au milieu à gauche" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="4" Grid.Row="1" Grid.Column="1" Click="Pos_Click" ToolTipService.ToolTip="Au centre" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="5" Grid.Row="1" Grid.Column="2" Click="Pos_Click" ToolTipService.ToolTip="Au milieu à droite" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="6" Grid.Row="2" Grid.Column="0" Click="Pos_Click" ToolTipService.ToolTip="En bas à gauche" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="7" Grid.Row="2" Grid.Column="1" Click="Pos_Click" ToolTipService.ToolTip="En bas au centre" />
+                                        <ToggleButton Style="{StaticResource PosButton}" Tag="8" Grid.Row="2" Grid.Column="2" Click="Pos_Click" ToolTipService.ToolTip="En bas à droite" />
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource Hint}" Text="Tu peux aussi faire glisser le widget où tu veux sur l'écran." />
+                                </StackPanel>
+
+                                <RadioButtons x:Name="SizeRadios" Header="Taille" MaxColumns="3">
+                                    <x:String>Petit</x:String>
+                                    <x:String>Moyen</x:String>
+                                    <x:String>Grand</x:String>
+                                </RadioButtons>
+
+                                <Slider x:Name="TransparencySlider" Header="Transparence du widget" Minimum="0" Maximum="90"
+                                        StepFrequency="5" Width="360" HorizontalAlignment="Left" />
+
+                                <ToggleSwitch x:Name="AutoPlayerSwitch" Header="Afficher le lecteur quand une musique démarre ou change" />
+
+                                <NumberBox x:Name="SleepBox" Header="Mode sommeil après (minutes d'inactivité)" Minimum="1" Maximum="120"
+                                           SpinButtonPlacementMode="Compact" Width="260" HorizontalAlignment="Left" />
+
+                                <StackPanel Spacing="6">
+                                    <Slider x:Name="ProximitySlider" Header="Zone de détection de la souris (pixels)" Minimum="30" Maximum="300"
+                                            StepFrequency="10" Width="360" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Quand la souris entre dans cette zone, Lucie fait « waouh » et la suit des yeux." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Apparence -->
+                    <StackPanel x:Name="SecLook" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Apparence" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="20">
+                                <StackPanel Spacing="6">
+                                    <ToggleSwitch x:Name="TransparentSwitch" Header="Paramètres transparents" Toggled="TransparentSwitch_Toggled" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="On voit ton bureau en flou derrière cette fenêtre." />
+                                </StackPanel>
+                                <StackPanel Spacing="10">
+                                    <TextBlock Text="Couleur d'accent" />
+                                    <StackPanel x:Name="AccentPanel" Orientation="Horizontal" Spacing="10">
+                                        <Button Tag="#9AB8FF" Click="Accent_Click" Width="36" Height="36" CornerRadius="18" Padding="0" Background="#9AB8FF" ToolTipService.ToolTip="Bleu" />
+                                        <Button Tag="#B197FC" Click="Accent_Click" Width="36" Height="36" CornerRadius="18" Padding="0" Background="#B197FC" ToolTipService.ToolTip="Violet" />
+                                        <Button Tag="#63E6BE" Click="Accent_Click" Width="36" Height="36" CornerRadius="18" Padding="0" Background="#63E6BE" ToolTipService.ToolTip="Menthe" />
+                                        <Button Tag="#FFA8A8" Click="Accent_Click" Width="36" Height="36" CornerRadius="18" Padding="0" Background="#FFA8A8" ToolTipService.ToolTip="Rose" />
+                                        <Button Tag="#FFD43B" Click="Accent_Click" Width="36" Height="36" CornerRadius="18" Padding="0" Background="#FFD43B" ToolTipService.ToolTip="Jaune" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Sons -->
+                    <StackPanel x:Name="SecSounds" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="Sons" />
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="20">
+                                <StackPanel Spacing="6">
+                                    <ToggleSwitch x:Name="SoundsSwitch" Header="Sons de réponse" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Petit bip quand elle t'écoute, deux notes douces quand c'est fait." />
+                                </StackPanel>
+                                <Slider x:Name="VolumeSlider" Header="Volume des sons" Minimum="0" Maximum="100" StepFrequency="5"
+                                        Width="360" HorizontalAlignment="Left" />
+                                <RadioButtons x:Name="ThemeRadios" Header="Ambiance sonore" MaxColumns="3">
+                                    <x:String>Doux</x:String>
+                                    <x:String>Cristal</x:String>
+                                    <x:String>Bulle</x:String>
+                                </RadioButtons>
+                                <Button Content="Écouter un aperçu" Click="Preview_Click" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Commandes -->
+                    <StackPanel x:Name="SecCommands" Spacing="14" Visibility="Collapsed">
+                        <Grid>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Commandes et raccourcis" />
+                            <Button Content="+ Ajouter une commande" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}"
+                                    Click="AddCommand_Click" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Pour Discord : mets ici exactement les mêmes raccourcis que dans Discord › Paramètres › Raccourcis clavier. Lucie les tape à ta place. Si tu dis « ouvre Spotify » sans commande dédiée, elle cherche l'appli dans le menu Démarrer." />
+                        <Border Style="{StaticResource Card}" Padding="12">
+                            <StackPanel>
+                                <Grid ColumnSpacing="8" Padding="4,0,4,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2*" />
+                                        <ColumnDefinition Width="1.5*" />
+                                        <ColumnDefinition Width="1.6*" />
+                                        <ColumnDefinition Width="1.1*" />
+                                        <ColumnDefinition Width="40" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource Hint}" Text="CE QUE TU DIS" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="ACTION" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="2" Text="RACCOURCI / APPLI / LIEN" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="3" Text="ARGUMENTS" />
+                                </Grid>
+                                <ItemsControl x:Name="CommandList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:VoiceCommand">
+                                            <Grid ColumnSpacing="8" Padding="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="2*" />
+                                                    <ColumnDefinition Width="1.5*" />
+                                                    <ColumnDefinition Width="1.6*" />
+                                                    <ColumnDefinition Width="1.1*" />
+                                                    <ColumnDefinition Width="40" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Text="{x:Bind Phrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="ouvre discord" />
+                                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                          SelectedIndex="{x:Bind ActionIndex, Mode=TwoWay}">
+                                                    <x:String>Ouvrir une appli / un lien</x:String>
+                                                    <x:String>Raccourci clavier</x:String>
+                                                    <x:String>Capture d'écran</x:String>
+                                                    <x:String>Lecture / pause</x:String>
+                                                    <x:String>Morceau suivant</x:String>
+                                                    <x:String>Morceau précédent</x:String>
+                                                </ComboBox>
+                                                <TextBox Grid.Column="2" Text="{x:Bind Target, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Ctrl+Maj+M" />
+                                                <TextBox Grid.Column="3" Text="{x:Bind Arguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="(facultatif)" />
+                                                <Button Grid.Column="4" Width="36" Height="36" Padding="0" Background="Transparent" BorderThickness="0"
+                                                        Tag="{x:Bind}" Click="DeleteCommand_Click" ToolTipService.ToolTip="Supprimer">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+        </NavigationView>
+
+        <!-- Pied de page -->
+        <Grid Grid.Row="2" Padding="24,12" Background="#14000000">
+            <TextBlock x:Name="SavedText" VerticalAlignment="Center" Style="{StaticResource Hint}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                <Button Content="Fermer" Click="Close_Click" />
+                <Button Content="Enregistrer" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
