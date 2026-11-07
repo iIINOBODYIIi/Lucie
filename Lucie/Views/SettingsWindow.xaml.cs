@@ -41,8 +41,10 @@ public sealed partial class SettingsWindow : Window
 
         App.Speech.LevelChanged += OnLevel;
         App.Speech.Heard += OnHeard;
+        App.Settings.Changed += OnSettingsChanged;
         Closed += (_, _) =>
         {
+            App.Settings.Changed -= OnSettingsChanged;
             // Rien n'est perdu : fermer la fenêtre enregistre automatiquement.
             SaveAll(fromClose: true);
             App.Speech.LevelChanged -= OnLevel;
@@ -73,6 +75,8 @@ public sealed partial class SettingsWindow : Window
         SizeRadios.SelectedIndex = (int)s.Size;
         TransparencySlider.Value = s.WidgetTransparency;
         AutoPlayerSwitch.IsOn = s.AutoPlayer;
+        DisplayRadios.SelectedIndex = s.WidgetHidden ? 2 : s.AlwaysOnTop ? 0 : 1;
+        FullscreenSwitch.IsOn = s.HideInFullscreen;
         SleepBox.Value = s.SleepMinutes;
         ProximitySlider.Value = s.ProximityPx;
 
@@ -183,6 +187,14 @@ public sealed partial class SettingsWindow : Window
     // ───────────── Audio ─────────────
 
     private void OnLevel(double level) => DispatcherQueue.TryEnqueue(() => LevelBar.Value = level);
+
+    /// <summary>Le widget a été rangé / ressorti depuis l'icône : on met l'option à jour.</summary>
+    private void OnSettingsChanged(object? sender, EventArgs e) => DispatcherQueue.TryEnqueue(() =>
+    {
+        var s = App.Settings.Current;
+        if (s.WidgetHidden && DisplayRadios.SelectedIndex != 2) DisplayRadios.SelectedIndex = 2;
+        else if (!s.WidgetHidden && DisplayRadios.SelectedIndex == 2) DisplayRadios.SelectedIndex = s.AlwaysOnTop ? 0 : 1;
+    });
 
     private void OnHeard(string text) => DispatcherQueue.TryEnqueue(() => LastHeardText.Text = $"« {text} »");
 
@@ -399,6 +411,10 @@ public sealed partial class SettingsWindow : Window
         s.Size = (WidgetSize)Math.Max(0, SizeRadios.SelectedIndex);
         s.WidgetTransparency = TransparencySlider.Value;
         s.AutoPlayer = AutoPlayerSwitch.IsOn;
+        int display = Math.Max(0, DisplayRadios.SelectedIndex);
+        s.WidgetHidden = display == 2;
+        if (display != 2) s.AlwaysOnTop = display == 0;
+        s.HideInFullscreen = FullscreenSwitch.IsOn;
         s.SleepMinutes = double.IsNaN(SleepBox.Value) ? 5 : (int)Math.Clamp(SleepBox.Value, 1, 120);
         s.ProximityPx = (int)ProximitySlider.Value;
 

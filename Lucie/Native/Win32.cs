@@ -196,6 +196,81 @@ internal static class Win32
         return (GetAsyncKeyState(vk) & 0x8000) != 0;
     }
 
+    // ───── Plein écran (jeux, vidéos) ─────
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT { public int Left, Top, Right, Bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO { public int cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hwnd, out RECT rect);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetShellWindow();
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetDesktopWindow();
+
+    [DllImport("user32.dll")]
+    private static extern bool IsZoomed(IntPtr hwnd);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassNameW(IntPtr hwnd, System.Text.StringBuilder name, int max);
+
+    [DllImport("shell32.dll")]
+    private static extern int SHQueryUserNotificationState(out int state);
+
+    private static readonly HashSet<string> ShellClasses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Windows.UI.Core.CoreWindow",
+        "XamlExplorerHostIslandWindow", "TopLevelWindowForOverflowXamlIsland", "NotifyIconOverflowWindow"
+    };
+
+    /// <summary>
+    /// Une appli est-elle en plein écran (jeu, vidéo…) sur le même écran que cette fenêtre ?
+    /// Une fenêtre simplement agrandie ne compte pas.
+    /// </summary>
+    public static bool IsFullscreenAppOnSameMonitor(IntPtr ownWindow)
+    {
+        IntPtr fg = GetForegroundWindow();
+        if (fg == IntPtr.Zero || fg == ownWindow || fg == GetShellWindow() || fg == GetDesktopWindow()) return false;
+        if (!IsWindowVisible(fg)) return false;
+
+        GetWindowThreadProcessId(fg, out uint pid);
+        if (pid == (uint)Environment.ProcessId) return false;   // nos propres fenêtres (paramètres…)
+
+        var cls = new System.Text.StringBuilder(256);
+        GetClassNameW(fg, cls, cls.Capacity);
+        if (ShellClasses.Contains(cls.ToString())) return false;
+
+        IntPtr monitor = MonitorFromWindow(fg, 2 /* MONITOR_DEFAULTTONEAREST */);
+        if (monitor != MonitorFromWindow(ownWindow, 2)) return false;
+
+        // Jeu en plein écran exclusif / mode présentation : Windows le sait directement.
+        if (SHQueryUserNotificationState(out int state) == 0 && (state == 3 /* D3D plein écran */ || state == 4 /* présentation */))
+            return true;
+
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfo(monitor, ref info) || !GetWindowRect(fg, out var r)) return false;
+
+        bool covers = r.Left <= info.rcMonitor.Left && r.Top <= info.rcMonitor.Top &&
+                      r.Right >= info.rcMonitor.Right && r.Bottom >= info.rcMonitor.Bottom;
+        if (!covers) return false;
+
+        // Une fenêtre normale agrandie (avec barre de titre) n'est pas du plein écran.
+        long style = GetWindowLongPtr(fg, -16).ToInt64();
+        bool hasCaption = (style & 0x00C00000) == 0x00C00000;
+        return !(hasCaption && IsZoomed(fg));
+    }
+
     /// <summary>Temps écoulé depuis la dernière action clavier/souris.</summary>
     public static TimeSpan GetIdleTime()
     {

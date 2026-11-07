@@ -185,6 +185,20 @@
                                 <Slider x:Name="TransparencySlider" Header="Transparence du widget" Minimum="0" Maximum="90"
                                         StepFrequency="5" Width="360" HorizontalAlignment="Left" />
 
+                                <StackPanel Spacing="6">
+                                    <RadioButtons x:Name="DisplayRadios" Header="Affichage du widget">
+                                        <x:String>Attaché : toujours visible, par-dessus les fenêtres</x:String>
+                                        <x:String>Détaché : reste sur le bureau, passe derrière les fenêtres</x:String>
+                                        <x:String>Caché : rangé près de l'horloge (clic sur l'icône pour le ressortir)</x:String>
+                                    </RadioButtons>
+                                    <TextBlock Style="{StaticResource Hint}" Text="Caché, Lucie t'écoute toujours et réapparaît le temps de te répondre." />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <ToggleSwitch x:Name="FullscreenSwitch" Header="Se cacher pendant les jeux et les vidéos en plein écran" />
+                                    <TextBlock Style="{StaticResource Hint}" Text="Le widget disparaît dès qu'une appli passe en plein écran, et revient quand tu en sors." />
+                                </StackPanel>
+
                                 <ToggleSwitch x:Name="AutoPlayerSwitch" Header="Afficher le lecteur quand une musique démarre ou change" />
 
                                 <NumberBox x:Name="SleepBox" Header="Mode sommeil après (minutes d'inactivité)" Minimum="1" Maximum="120"

@@ -41,7 +41,9 @@ public sealed partial class WidgetWindow : Window
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Win32.SubclassProc _frameProc;   // gardé en mémoire tant que la fenêtre vit
     private TrayIcon? _tray;
-    private bool _hidden;                              // widget masqué depuis la zone de notification
+    private bool _shown = true;                        // le widget est-il affiché en ce moment ?
+    private bool _fullscreen;                          // un jeu / une vidéo est en plein écran
+    private double _nextFullscreenCheck;
 
     private IRandomAccessStreamReference? _shownThumbnail;
 
@@ -91,7 +93,7 @@ public sealed partial class WidgetWindow : Window
         // Icône dans la zone de notification (près de l'horloge)
         _tray = new TrayIcon(_hwnd, App.Settings.Current.AssistantName,
             System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "LucieIcon.ico"));
-        _tray.Clicked += () => _dispatcher.TryEnqueue(() => SetHidden(!_hidden));
+        _tray.Clicked += () => _dispatcher.TryEnqueue(() => SetHidden(!App.Settings.Current.WidgetHidden));
         _tray.DoubleClicked += () => _dispatcher.TryEnqueue(() => App.Current.OpenSettings());
         _tray.MenuRequested += ShowTrayMenu;
 
@@ -270,6 +272,10 @@ public sealed partial class WidgetWindow : Window
 
         _hotkeys.Register(s.TalkHotkey);
         UpdateMicButton();
+
+        // Attaché (toujours par-dessus) ou détaché (reste sur le bureau)
+        if (AppWindow.Presenter is OverlappedPresenter presenter) presenter.IsAlwaysOnTop = s.AlwaysOnTop;
+        UpdateVisibility();
     }
 
     private void ApplyLayout()
@@ -603,7 +609,7 @@ public sealed partial class WidgetWindow : Window
             AppWindow.Hide();
             await Task.Delay(180);
             ok = await App.Actions.RunAsync(intent);
-            if (!_hidden) AppWindow.Show(false);
+            if (_shown) AppWindow.Show(false);
         }
         else
         {
@@ -690,6 +696,14 @@ public sealed partial class WidgetWindow : Window
 
         Face.Happy = petting;
         _sleeping = Win32.GetIdleTime().TotalMinutes >= Math.Max(1, s.SleepMinutes);
+
+        // Jeu ou vidéo en plein écran ? (vérifié 3 fois par seconde)
+        if (now >= _nextFullscreenCheck)
+        {
+            _nextFullscreenCheck = now + 0.33;
+            _fullscreen = s.HideInFullscreen && Win32.IsFullscreenAppOnSameMonitor(_hwnd);
+        }
+        UpdateVisibility();
 
         // Sécurité : ne jamais rester bloquée en mode écoute.
         if (_listening && DateTime.Now - _listenStarted > ListenWatchdog)
@@ -815,19 +829,36 @@ public sealed partial class WidgetWindow : Window
 
     // ───────────────────────── Zone de notification ─────────────────────────
 
-    /// <summary>Masque ou réaffiche le widget (Lucie continue d'écouter quand il est masqué).</summary>
+    /// <summary>Range le widget dans la zone de notification, ou le ressort (Lucie continue d'écouter).</summary>
     private void SetHidden(bool hidden)
     {
-        _hidden = hidden;
-        if (hidden)
+        App.Settings.Current.WidgetHidden = hidden;
+        App.Settings.Save();
+        UpdateVisibility();
+    }
+
+    /// <summary>
+    /// Affiche le widget sauf s'il est rangé ou qu'un jeu / une vidéo est en plein écran.
+    /// Rangé, il réapparaît quand même le temps de t'écouter et de répondre.
+    /// </summary>
+    private void UpdateVisibility()
+    {
+        var s = App.Settings.Current;
+        bool talking = _listening || DateTime.Now < _doneUntil;
+        bool show = !_fullscreen && (!s.WidgetHidden || talking);
+        if (show == _shown && AppWindow.IsVisible == show) return;
+
+        _shown = show;
+        if (show)
         {
-            _hover = false;
-            AppWindow.Hide();
+            AppWindow.Show(false);
+            if (AppWindow.Presenter is OverlappedPresenter p) p.IsAlwaysOnTop = s.AlwaysOnTop;
+            Face.Blink();
         }
         else
         {
-            AppWindow.Show(false);
-            Face.Blink();
+            _hover = false;
+            AppWindow.Hide();
         }
     }
 
@@ -837,7 +868,7 @@ public sealed partial class WidgetWindow : Window
         var entries = new List<MenuEntry>
         {
             new($"Parler à {name}"),
-            new(_hidden ? "Afficher le widget" : "Masquer le widget"),
+            new(App.Settings.Current.WidgetHidden ? "Afficher le widget" : "Masquer le widget"),
             new("Couper le micro", Checked: App.Speech.Muted),
             MenuEntry.Line,
             new("Paramètres…"),
@@ -850,7 +881,7 @@ public sealed partial class WidgetWindow : Window
             switch (chosen)
             {
                 case 0: App.Speech.ListenNow(); break;
-                case 1: SetHidden(!_hidden); break;
+                case 1: SetHidden(!App.Settings.Current.WidgetHidden); break;
                 case 2:
                     App.Speech.Muted = !App.Speech.Muted;
                     UpdateMicButton();

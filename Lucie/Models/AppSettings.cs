@@ -199,6 +199,12 @@ public sealed class AppSettings
     public WidgetSize Size { get; set; } = WidgetSize.Medium;
     public double WidgetTransparency { get; set; } = 45;   // 0 = opaque, 90 = très transparent
     public bool AutoPlayer { get; set; } = true;
+    /// <summary>Attaché : toujours par-dessus les fenêtres. Détaché : reste sur le bureau.</summary>
+    public bool AlwaysOnTop { get; set; } = true;
+    /// <summary>Widget rangé dans la zone de notification.</summary>
+    public bool WidgetHidden { get; set; }
+    /// <summary>Se cacher quand un jeu ou une vidéo passe en plein écran.</summary>
+    public bool HideInFullscreen { get; set; } = true;
     public int SleepMinutes { get; set; } = 5;
     public int ProximityPx { get; set; } = 120;
 
