@@ -4,7 +4,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:Lucie.Models"
-    xmlns:views="using:Lucie.Views">
+    xmlns:views="using:Lucie.Views"
+    xmlns:airplay="using:Lucie.AirPlay">
 
     <Grid x:Name="Root">
         <Grid.Resources>
@@ -66,6 +67,9 @@
                 </NavigationViewItem>
                 <NavigationViewItem Content="Apparence" Tag="look">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE790;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="AirPlay" Tag="airplay">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE7F5;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Content="Sons" Tag="sounds">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE767;" /></NavigationViewItem.Icon>
@@ -255,6 +259,14 @@
                                 <Button Content="Écouter un aperçu" Click="Preview_Click" />
                             </StackPanel>
                         </Border>
+                    </StackPanel>
+
+                    <!-- AirPlay : tout Onde -->
+                    <StackPanel x:Name="SecAirPlay" Spacing="14" Visibility="Collapsed">
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="AirPlay" />
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Ton PC devient une enceinte AirPlay pour ton iPhone (l'ancienne appli Onde, maintenant dans Lucie). Les réglages s'appliquent tout de suite." />
+                        <airplay:AirPlaySettingsPanel x:Name="AirPlayPanel" />
                     </StackPanel>
 
                     <!-- Applications et leurs raccourcis -->

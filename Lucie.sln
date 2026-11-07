@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Lucie", "Lucie\Lucie.csproj", "{6F1C2A64-3B1E-4C4B-9F0E-2E7A5D3C8B11}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Onde.Core", "Onde.Core\Onde.Core.csproj", "{3D7A2B91-5C4E-4F0A-8E21-7B9C6D1E2F33}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,10 @@ Global
 		{6F1C2A64-3B1E-4C4B-9F0E-2E7A5D3C8B11}.Debug|x64.Build.0 = Debug|x64
 		{6F1C2A64-3B1E-4C4B-9F0E-2E7A5D3C8B11}.Release|x64.ActiveCfg = Release|x64
 		{6F1C2A64-3B1E-4C4B-9F0E-2E7A5D3C8B11}.Release|x64.Build.0 = Release|x64
+		{3D7A2B91-5C4E-4F0A-8E21-7B9C6D1E2F33}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3D7A2B91-5C4E-4F0A-8E21-7B9C6D1E2F33}.Debug|x64.Build.0 = Debug|Any CPU
+		{3D7A2B91-5C4E-4F0A-8E21-7B9C6D1E2F33}.Release|x64.ActiveCfg = Release|Any CPU
+		{3D7A2B91-5C4E-4F0A-8E21-7B9C6D1E2F33}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

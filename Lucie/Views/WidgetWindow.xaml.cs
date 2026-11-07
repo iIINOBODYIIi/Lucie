@@ -884,11 +884,15 @@ public sealed partial class WidgetWindow : Window
     private void ShowTrayMenu()
     {
         var name = App.Settings.Current.AssistantName;
+        bool airPlayWidgetShown = App.AirPlay.IsRunning && App.AirPlay.Settings.ShowWidget;
         var entries = new List<MenuEntry>
         {
             new($"Parler à {name}"),
             new(App.Settings.Current.WidgetHidden ? "Afficher le widget" : "Masquer le widget"),
             new("Couper le micro", Checked: App.Speech.Muted),
+            MenuEntry.Line,
+            new("Enceinte AirPlay", Checked: App.AirPlay.IsRunning),
+            new("Widget AirPlay", Checked: airPlayWidgetShown),
             MenuEntry.Line,
             new("Paramètres…"),
             new("Quitter"),
@@ -905,8 +909,23 @@ public sealed partial class WidgetWindow : Window
                     App.Speech.Muted = !App.Speech.Muted;
                     UpdateMicButton();
                     break;
-                case 4: App.Current.OpenSettings(); break;
-                case 5: App.Current.Quit(); break;
+                case 4:
+                    App.AirPlay.SetEnabled(!App.AirPlay.IsRunning);
+                    App.Current.UpdateAirPlayWidget();
+                    break;
+                case 5:
+                    if (airPlayWidgetShown)
+                    {
+                        App.Current.SetAirPlayWidgetVisible(false);
+                    }
+                    else
+                    {
+                        if (!App.AirPlay.IsRunning) App.AirPlay.SetEnabled(true);
+                        App.Current.SetAirPlayWidgetVisible(true);
+                    }
+                    break;
+                case 7: App.Current.OpenSettings(); break;
+                case 8: App.Current.Quit(); break;
             }
         });
     }

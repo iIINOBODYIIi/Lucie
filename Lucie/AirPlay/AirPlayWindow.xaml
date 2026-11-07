@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="Lucie.AirPlay.AirPlayWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="AirPlay">
+
+    <Grid x:Name="Root" Background="Transparent" PointerPressed="Root_PointerPressed" SizeChanged="Root_SizeChanged">
+        <Border x:Name="Card" CornerRadius="20" BorderThickness="1" BorderBrush="#26FFFFFF">
+            <Grid>
+                <!-- Pochette en fond (ambiance) -->
+                <Image x:Name="ArtBackdrop" Stretch="UniformToFill" Opacity="0.30" IsHitTestVisible="False" />
+                <Rectangle x:Name="ArtShade" IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                            <GradientStop x:Name="ShadeStop1" Color="#00000000" Offset="0" />
+                            <GradientStop x:Name="ShadeStop2" Color="#AA000000" Offset="1" />
+                        </LinearGradientBrush>
+                    </Rectangle.Fill>
+                </Rectangle>
+
+                <Grid x:Name="ContentGrid" Padding="14" ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Pochette -->
+                    <Border x:Name="ArtFrame" Width="104" Height="104" CornerRadius="14" Background="#22FFFFFF" VerticalAlignment="Center">
+                        <Grid>
+                            <FontIcon x:Name="ArtPlaceholder" Glyph="&#xEC4F;" FontSize="38" Opacity="0.7" />
+                            <Image x:Name="ArtImage" Stretch="UniformToFill" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Column="1" RowSpacing="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- En-tête : statut + boutons fenêtre -->
+                        <Grid Grid.Row="0">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Ellipse x:Name="StatusDot" Width="7" Height="7" Fill="#FF9CA3AF" />
+                                <TextBlock x:Name="StatusText" Text="AirPlay" FontSize="11" Opacity="0.75" TextTrimming="CharacterEllipsis" MaxWidth="170" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="0" Margin="0,-6,-6,0">
+                                <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Click="Settings_Click" ToolTipService.ToolTip="Réglages AirPlay">
+                                    <FontIcon Glyph="&#xE713;" FontSize="12" />
+                                </Button>
+                                <Button x:Name="MinimizeButton" Style="{StaticResource IconButton}" Click="Minimize_Click" ToolTipService.ToolTip="Réduire">
+                                    <FontIcon Glyph="&#xE921;" FontSize="12" />
+                                </Button>
+                                <Button Style="{StaticResource IconButton}" Click="Close_Click" ToolTipService.ToolTip="Masquer le widget (l'enceinte reste allumée)">
+                                    <FontIcon Glyph="&#xE8BB;" FontSize="12" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Titre + vumètre -->
+                        <Grid Grid.Row="1" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TitleText" Text="Prêt à recevoir" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                            <StackPanel x:Name="Visualizer" Grid.Column="1" Orientation="Horizontal" Spacing="2" Height="14" VerticalAlignment="Center">
+                                <Rectangle x:Name="Bar1" Width="3" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Bottom" />
+                                <Rectangle x:Name="Bar2" Width="3" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Bottom" />
+                                <Rectangle x:Name="Bar3" Width="3" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Bottom" />
+                                <Rectangle x:Name="Bar4" Width="3" Height="3" RadiusX="1.5" RadiusY="1.5" VerticalAlignment="Bottom" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="ArtistText" Grid.Row="2" Text="Choisis ce PC dans AirPlay sur ton iPhone" FontSize="12" Opacity="0.75" TextTrimming="CharacterEllipsis" />
+
+                        <!-- Progression -->
+                        <Grid x:Name="ProgressRow" Grid.Row="4" ColumnSpacing="8" Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="ElapsedText" Text="0:00" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                            <ProgressBar x:Name="Progress" Grid.Column="1" Minimum="0" Maximum="1" Value="0" VerticalAlignment="Center" />
+                            <TextBlock x:Name="DurationText" Grid.Column="2" Text="0:00" FontSize="10" Opacity="0.6" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <!-- Commandes -->
+                        <Grid Grid.Row="5" Margin="-6,2,-6,-4">
+                            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                                <Button x:Name="PrevButton" Style="{StaticResource IconButton}" Click="Prev_Click" ToolTipService.ToolTip="Précédent">
+                                    <FontIcon Glyph="&#xE892;" FontSize="14" />
+                                </Button>
+                                <Button x:Name="PlayButton" Width="36" Height="36" CornerRadius="18" Padding="0" BorderThickness="0" Click="PlayPause_Click" ToolTipService.ToolTip="Lecture / pause">
+                                    <FontIcon x:Name="PlayIcon" Glyph="&#xE768;" FontSize="14" />
+                                </Button>
+                                <Button x:Name="NextButton" Style="{StaticResource IconButton}" Click="Next_Click" ToolTipService.ToolTip="Suivant">
+                                    <FontIcon Glyph="&#xE893;" FontSize="14" />
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="2" VerticalAlignment="Center">
+                                <Button x:Name="EqButton" Style="{StaticResource IconButton}" Click="Eq_Click" ToolTipService.ToolTip="Égaliseur (clic droit : réglages)" RightTapped="Effects_RightTapped">
+                                    <FontIcon Glyph="&#xE9E9;" FontSize="14" />
+                                </Button>
+                                <Button x:Name="ConcertButton" Style="{StaticResource IconButton}" Click="Concert_Click" ToolTipService.ToolTip="Mode concert (clic droit : réglages)" RightTapped="Effects_RightTapped">
+                                    <FontIcon Glyph="&#xE7F5;" FontSize="14" />
+                                </Button>
+                                <Button x:Name="VolumeButton" Style="{StaticResource IconButton}" ToolTipService.ToolTip="Volume">
+                                    <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;" FontSize="14" />
+                                    <Button.Flyout>
+                                        <Flyout Placement="Top">
+                                            <StackPanel Width="200" Spacing="4">
+                                                <TextBlock Text="Volume du widget" FontSize="12" Opacity="0.8" />
+                                                <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" StepFrequency="1" ValueChanged="Volume_ValueChanged" />
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Poignée de redimensionnement (coin bas-droit) -->
+        <Border x:Name="ResizeGrip" Width="20" Height="20" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                Background="Transparent" Margin="0,0,3,3"
+                PointerPressed="Grip_PointerPressed" PointerMoved="Grip_PointerMoved"
+                PointerReleased="Grip_PointerReleased" PointerCaptureLost="Grip_PointerCaptureLost"
+                ToolTipService.ToolTip="Glisser pour redimensionner">
+            <TextBlock x:Name="GripGlyph" Text="&#x25E2;" FontSize="10" Opacity="0.35"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,3,2" />
+        </Border>
+    </Grid>
+</Window>

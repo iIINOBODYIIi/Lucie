@@ -8,7 +8,8 @@ namespace Lucie.Services;
 /// Ce que Lucie a compris : une commande, une appli à ouvrir / montrer,
 /// ou le raccourci d'une appli (Command + ShortcutApp).
 /// </summary>
-public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null, Reaction? React = null);
+public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null, Reaction? React = null,
+                            AirPlayVoiceCommand? AirPlay = null);
 
 /// <summary>
 /// Transforme une phrase entendue en action.
@@ -40,6 +41,9 @@ public sealed class CommandInterpreter
         string text = Normalize(heard);
         if (text.Length == 0) return null;
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        // 0. L'enceinte AirPlay (mode concert, basses, égaliseur…) : des phrases très reconnaissables
+        if (AirPlayVoice.Match(text) is AirPlayVoiceCommand airPlay) return new Intent(null, null, null, null, airPlay);
 
         // Toutes les phrases possibles : commandes générales + raccourcis de chaque appli
         var owners = new Dictionary<VoiceCommand, AppEntry>();

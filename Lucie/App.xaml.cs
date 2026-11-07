@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
+using Lucie.AirPlay;
 using Lucie.Services;
 using Lucie.Views;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
@@ -14,6 +16,8 @@ public partial class App : Application
     public static SpeechService Speech { get; private set; } = null!;
     public static ActionExecutor Actions { get; private set; } = null!;
     public static CommandInterpreter Interpreter { get; } = new();
+    /// <summary>L'enceinte AirPlay (le moteur d'Onde).</summary>
+    public static AirPlayService AirPlay { get; private set; } = null!;
 
     public static new App Current => (App)Application.Current;
     public static SolidColorBrush Accent => (SolidColorBrush)Application.Current.Resources["LucieAccent"];
@@ -22,6 +26,8 @@ public partial class App : Application
     private static bool _reported;
     private WidgetWindow? _widget;
     private SettingsWindow? _settingsWindow;
+    private AirPlayWindow? _airPlayWindow;
+    private DispatcherQueue? _dispatcher;
 
     public App()
     {
@@ -52,9 +58,17 @@ public partial class App : Application
             Media = new MediaService();
             Actions = new ActionExecutor(Media);
             Speech = new SpeechService(Settings);
+            _dispatcher = DispatcherQueue.GetForCurrentThread();
+
+            // Enceinte AirPlay : allumée seulement si on l'a activée dans les paramètres
+            AirPlay = new AirPlayService();
+            AirPlay.RunningChanged += () => _dispatcher.TryEnqueue(UpdateAirPlayWidget);
+            if (AirPlay.Settings.Enabled) AirPlay.Start();
 
             _widget = new WidgetWindow();
             _widget.Activate();
+
+            UpdateAirPlayWidget();
 
             await Media.InitializeAsync();
             Speech.Start();
@@ -75,19 +89,52 @@ public partial class App : Application
             Accent.Color = color;
     }
 
-    public void OpenSettings()
+    public void OpenSettings() => OpenSettings(null);
+
+    /// <summary>Ouvre les paramètres, éventuellement sur une section (« airplay ») et un onglet AirPlay.</summary>
+    public void OpenSettings(string? section, int airPlayTab = 0)
     {
         if (_settingsWindow is null)
         {
             _settingsWindow = new SettingsWindow();
             _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         }
+        if (section is not null) _settingsWindow.ShowSection(section, airPlayTab);
         _settingsWindow.Activate();
+    }
+
+    // ───────────── Widget AirPlay ─────────────
+
+    /// <summary>Affiche le widget AirPlay si l'enceinte est allumée et le widget demandé, sinon le ferme.</summary>
+    public void UpdateAirPlayWidget()
+    {
+        bool want = AirPlay.IsRunning && AirPlay.Settings.ShowWidget;
+        if (want && _airPlayWindow is null)
+        {
+            _airPlayWindow = new AirPlayWindow();
+            _airPlayWindow.Closed += (_, _) => _airPlayWindow = null;
+            _airPlayWindow.Activate();
+        }
+        else if (!want && _airPlayWindow is not null)
+        {
+            var w = _airPlayWindow;
+            _airPlayWindow = null;
+            w.Close();
+        }
+    }
+
+    public void SetAirPlayWidgetVisible(bool visible)
+    {
+        AirPlay.Settings.ShowWidget = visible;
+        AirPlay.SaveSoon();
+        UpdateAirPlayWidget();
     }
 
     public void Quit()
     {
         Speech?.Dispose();
+        try { _airPlayWindow?.Close(); } catch { }
+        AirPlay?.Dispose();
         _settingsWindow?.Close();
         _widget?.Close();
         Exit();

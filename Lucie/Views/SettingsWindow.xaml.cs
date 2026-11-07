@@ -134,6 +134,15 @@ public sealed partial class SettingsWindow : Window
         SecSounds.Visibility = Show(tag == "sounds");
         SecApps.Visibility = Show(tag == "apps");
         SecCommands.Visibility = Show(tag == "commands");
+        SecAirPlay.Visibility = Show(tag == "airplay");
+    }
+
+    /// <summary>Affiche une section (« airplay », « apps »…) et, pour AirPlay, un de ses onglets.</summary>
+    public void ShowSection(string tag, int airPlayTab = 0)
+    {
+        var item = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (i.Tag as string) == tag);
+        if (item is not null) Nav.SelectedItem = item;
+        if (tag == "airplay") AirPlayPanel.SelectTab(airPlayTab);
     }
 
     private static Visibility Show(bool b) => b ? Visibility.Visible : Visibility.Collapsed;

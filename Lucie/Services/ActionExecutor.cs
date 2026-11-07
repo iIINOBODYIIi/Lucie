@@ -1,4 +1,5 @@
 using Lucie.Models;
+using Onde.Core.AirPlay;
 
 namespace Lucie.Services;
 
@@ -29,20 +30,21 @@ public sealed class ActionExecutor
                     ScreenCapture.CaptureToPictures();
                     return true;
 
+                // Si un iPhone joue sur l'enceinte AirPlay, la musique se pilote sur l'iPhone.
                 case CommandAction.MediaPlayPause:
-                    return await _media.TogglePlayPauseAsync();
+                    return AirPlayConnected ? await App.AirPlay.SendAsync(RemoteCommand.PlayPause) : await _media.TogglePlayPauseAsync();
 
                 case CommandAction.MediaPlay:
-                    return await _media.PlayAsync();
+                    return AirPlayConnected ? await App.AirPlay.SendAsync(RemoteCommand.Play) : await _media.PlayAsync();
 
                 case CommandAction.MediaPause:
-                    return await _media.PauseAsync();
+                    return AirPlayConnected ? await App.AirPlay.SendAsync(RemoteCommand.Pause) : await _media.PauseAsync();
 
                 case CommandAction.MediaNext:
-                    return await _media.NextAsync();
+                    return AirPlayConnected ? await App.AirPlay.SendAsync(RemoteCommand.Next) : await _media.NextAsync();
 
                 case CommandAction.MediaPrevious:
-                    return await _media.PreviousAsync();
+                    return AirPlayConnected ? await App.AirPlay.SendAsync(RemoteCommand.Previous) : await _media.PreviousAsync();
 
                 case CommandAction.VolumeUp:
                     return await TapAsync(KeyboardSimulator.VK_VOLUME_UP, 5);
@@ -65,6 +67,7 @@ public sealed class ActionExecutor
     /// <summary>Exécute tout ce que Lucie a compris.</summary>
     public async Task<bool> RunAsync(Intent intent)
     {
+        if (intent.AirPlay is AirPlayVoiceCommand airPlay) return AirPlayVoice.Execute(airPlay, App.AirPlay);
         if (intent.App is AppEntry app) return await OpenAppAsync(app);
         if (intent.Command is null) return false;
         if (intent.ShortcutApp is AppEntry owner) return await RunAppShortcutAsync(owner, intent.Command.Target);
@@ -91,6 +94,8 @@ public sealed class ActionExecutor
             return false;
         }
     }
+
+    private static bool AirPlayConnected => App.AirPlay?.IsConnected == true;
 
     public async Task<bool> OpenAppAsync(AppEntry app)
     {

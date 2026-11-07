@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Lucie.AirPlay.AirPlaySettingsPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.6" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="Panel" TargetType="Border">
+            <Setter Property="Background" Value="#0DFFFFFF" />
+            <Setter Property="BorderBrush" Value="#17FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel Spacing="14">
+        <!-- En-tête : allumer / éteindre l'enceinte -->
+        <Border Style="{StaticResource Panel}">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Border Width="48" Height="48" CornerRadius="12" Background="#1AFFFFFF">
+                    <FontIcon Glyph="&#xE7F5;" FontSize="22" />
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="Enceinte AirPlay" FontSize="17" FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Ellipse x:Name="StatusDot" Width="8" Height="8" Fill="#FF9CA3AF" VerticalAlignment="Center" />
+                        <TextBlock x:Name="StatusLine" Text="Éteinte" FontSize="13" Opacity="0.8" TextWrapping="Wrap" />
+                    </StackPanel>
+                </StackPanel>
+                <ToggleSwitch x:Name="EnableToggle" Grid.Column="2" OnContent="Allumée" OffContent="Éteinte" Toggled="Enable_Toggled" />
+            </Grid>
+        </Border>
+
+        <InfoBar x:Name="OndeWarning" Severity="Warning" IsClosable="False" IsOpen="False"
+                 Title="L'appli Onde est encore ouverte"
+                 Message="Onde et Lucie se gêneraient (même nom sur l'iPhone). Ferme Onde : Lucie fait maintenant tout ce qu'elle faisait.">
+            <InfoBar.ActionButton>
+                <Button Content="Fermer Onde" Click="CloseOnde_Click" />
+            </InfoBar.ActionButton>
+        </InfoBar>
+
+        <InfoBar x:Name="ImportInfo" Severity="Success" IsClosable="True" IsOpen="False"
+                 Title="Réglages d'Onde repris"
+                 Message="Nom, égaliseur, mode concert et apparence ont été récupérés depuis Onde." />
+
+        <Pivot x:Name="Tabs">
+
+            <!-- ================= GÉNÉRAL ================= -->
+            <PivotItem Header="Général">
+                <StackPanel Spacing="16" Padding="4,8,4,8">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Nom affiché sur l'iPhone" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox x:Name="NameBox" Width="260" MaxLength="40" />
+                            <Button Content="Appliquer" Click="ApplyName_Click" />
+                        </StackPanel>
+                    </StackPanel>
+                    <ComboBox x:Name="DeviceBox" Header="Sortie audio" MinWidth="320" SelectionChanged="Device_Changed" />
+                    <StackPanel>
+                        <TextBlock x:Name="BufferLabel" Text="Mémoire tampon" />
+                        <Slider x:Name="BufferSlider" Minimum="150" Maximum="1500" StepFrequency="50" ValueChanged="Buffer_Changed" MaxWidth="420" HorizontalAlignment="Left" Width="420" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Augmente-la si le son coupe (Wi-Fi chargé). Plus elle est basse, plus les commandes réagissent vite." />
+                    </StackPanel>
+                    <StackPanel>
+                        <ToggleSwitch x:Name="MediaToggle" Header="Partager la musique avec Windows" Toggled="Media_Toggled" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Titre, artiste, pochette et état de lecture visibles par Wallpaper Engine, les widgets « en cours de lecture », le menu volume de Windows et les touches multimédias du clavier. Lucie aussi s'en sert : elle met son casque et ses commandes « musique suivante »… pilotent l'iPhone." />
+                    </StackPanel>
+
+                    <Border CornerRadius="12" Padding="14" Background="#0DFFFFFF">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Se connecter depuis l'iPhone" FontWeight="SemiBold" />
+                            <TextBlock TextWrapping="Wrap" Opacity="0.8" Text="1. Le PC et l'iPhone doivent être sur le même réseau Wi-Fi.&#x0a;2. Sur l'iPhone, ouvre le Centre de contrôle (ou l'écran de lecture de ta musique) et touche l'icône AirPlay.&#x0a;3. Choisis le nom ci-dessus. Les boutons du widget et la voix de Lucie pilotent ensuite ta musique sur l'iPhone." />
+                            <TextBlock Style="{StaticResource Hint}" Text="Le PC n'apparaît pas ? Autorise Lucie dans le pare-feu Windows (bouton ci-dessous) et vérifie que le réseau Wi-Fi est en profil « Privé »." />
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <Button Content="Autoriser Lucie dans le pare-feu" Click="Firewall_Click" />
+                                <TextBlock x:Name="FirewallText" Style="{StaticResource Hint}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock x:Name="InfoText" Style="{StaticResource Hint}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </PivotItem>
+
+            <!-- ================= WIDGET ================= -->
+            <PivotItem Header="Widget">
+                <StackPanel Spacing="16" Padding="4,8,4,8">
+                    <StackPanel>
+                        <ToggleSwitch x:Name="ShowWidgetToggle" Header="Afficher le widget AirPlay" Toggled="ShowWidget_Toggled" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Le cacher ne coupe pas l'enceinte : la musique continue, et tu peux le réafficher ici ou en demandant à Lucie." />
+                    </StackPanel>
+
+                    <RadioButtons x:Name="ModeBox" Header="Affichage" SelectionChanged="Mode_Changed">
+                        <x:String>Attaché : widget flottant, toujours au premier plan</x:String>
+                        <x:String>Fenêtre normale</x:String>
+                        <x:String>Détaché : fixé sur le bureau, reste derrière les autres fenêtres</x:String>
+                    </RadioButtons>
+
+                    <ToggleSwitch x:Name="FullscreenToggle" Header="Se cacher pendant les jeux et les vidéos en plein écran" Toggled="WidgetOptions_Toggled" />
+                    <ToggleSwitch x:Name="OnlyConnectedToggle" Header="N'apparaître que lorsqu'un iPhone est connecté" Toggled="WidgetOptions_Toggled" />
+                    <ToggleSwitch x:Name="LockToggle" Header="Verrouiller la position et la taille" Toggled="Appearance_Toggled" />
+                    <ToggleSwitch x:Name="TaskbarToggle" Header="Afficher dans la barre des tâches" Toggled="Appearance_Toggled" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Taille" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Compact" Tag="320,104" Click="SizePreset_Click" />
+                            <Button Content="Normal" Tag="390,152" Click="SizePreset_Click" />
+                            <Button Content="Grand" Tag="480,210" Click="SizePreset_Click" />
+                            <Button Content="Très grand" Tag="680,300" Click="SizePreset_Click" />
+                        </StackPanel>
+                        <TextBlock x:Name="WidthLabel" Text="Largeur" />
+                        <Slider x:Name="WidthSlider" Minimum="240" Maximum="1400" StepFrequency="10" ValueChanged="Size_Changed" Width="420" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="HeightLabel" Text="Hauteur" />
+                        <Slider x:Name="HeightSlider" Minimum="80" Maximum="900" StepFrequency="10" ValueChanged="Size_Changed" Width="420" HorizontalAlignment="Left" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Tu peux aussi tirer le coin en bas à droite du widget." />
+                    </StackPanel>
+                </StackPanel>
+            </PivotItem>
+
+            <!-- ================= APPARENCE ================= -->
+            <PivotItem Header="Apparence">
+                <StackPanel Spacing="16" Padding="4,8,4,8">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Couleur d'accent" FontWeight="SemiBold" />
+                        <StackPanel x:Name="AccentSwatches" Orientation="Horizontal" Spacing="8" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Couleur de fond" FontWeight="SemiBold" />
+                        <StackPanel x:Name="BackgroundSwatches" Orientation="Horizontal" Spacing="8" />
+                    </StackPanel>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Couleur du texte" FontWeight="SemiBold" />
+                        <StackPanel x:Name="TextSwatches" Orientation="Horizontal" Spacing="8" />
+                    </StackPanel>
+                    <Expander Header="Couleurs personnalisées" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="8">
+                            <RadioButtons x:Name="CustomTarget" MaxColumns="3" SelectedIndex="0" SelectionChanged="CustomTarget_Changed">
+                                <x:String>Accent</x:String>
+                                <x:String>Fond</x:String>
+                                <x:String>Texte</x:String>
+                            </RadioButtons>
+                            <ColorPicker x:Name="Picker" IsAlphaEnabled="False" IsMoreButtonVisible="False" ColorChanged="Picker_ColorChanged" />
+                        </StackPanel>
+                    </Expander>
+
+                    <RadioButtons x:Name="BackdropBox" Header="Style de fond" SelectionChanged="Backdrop_Changed">
+                        <x:String>Opaque</x:String>
+                        <x:String>Verre dépoli (flou)</x:String>
+                        <x:String>Transparent</x:String>
+                    </RadioButtons>
+                    <StackPanel>
+                        <TextBlock x:Name="OpacityLabel" Text="Opacité du fond" />
+                        <Slider x:Name="OpacitySlider" Minimum="0" Maximum="100" StepFrequency="1" ValueChanged="Opacity_Changed" Width="420" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="ContentOpacityLabel" Text="Opacité du contenu" />
+                        <Slider x:Name="ContentOpacitySlider" Minimum="15" Maximum="100" StepFrequency="1" ValueChanged="ContentOpacity_Changed" Width="420" HorizontalAlignment="Left" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Texte, pochette et boutons. Combine avec le fond « Transparent » à 0 % pour un widget presque invisible." />
+                    </StackPanel>
+                    <Button Content="Rendre le widget transparent" Click="MakeTransparent_Click" />
+                    <StackPanel>
+                        <TextBlock x:Name="RadiusLabel" Text="Arrondi des coins" />
+                        <Slider x:Name="RadiusSlider" Minimum="0" Maximum="32" StepFrequency="1" ValueChanged="Radius_Changed" Width="420" HorizontalAlignment="Left" />
+                    </StackPanel>
+                    <ToggleSwitch x:Name="ArtworkToggle" Header="Pochette en arrière-plan" Toggled="Appearance_Toggled" />
+                    <ToggleSwitch x:Name="VisualizerToggle" Header="Vumètre animé" Toggled="Appearance_Toggled" />
+                </StackPanel>
+            </PivotItem>
+
+            <!-- ================= ÉGALISEUR ================= -->
+            <PivotItem Header="Égaliseur">
+                <StackPanel Spacing="16" Padding="4,8,4,8">
+                    <Grid>
+                        <TextBlock Text="Modifie la tonalité : basses à gauche, aigus à droite." Opacity="0.75" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,140,0" />
+                        <ToggleSwitch x:Name="EqToggle" HorizontalAlignment="Right" OnContent="Activé" OffContent="Désactivé" Toggled="EqToggle_Toggled" />
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ComboBox x:Name="EqPresetBox" Header="Préréglage" Width="200" SelectionChanged="EqPreset_Changed" />
+                        <Button Content="Remettre à plat" VerticalAlignment="Bottom" Click="EqReset_Click" />
+                    </StackPanel>
+                    <Border CornerRadius="12" Padding="12" Background="#0DFFFFFF">
+                        <Grid x:Name="EqBands" ColumnSpacing="4" Height="230" />
+                    </Border>
+                    <StackPanel>
+                        <TextBlock x:Name="PreampLabel" Text="Préampli : 0 dB" />
+                        <Slider x:Name="PreampSlider" Minimum="-12" Maximum="12" StepFrequency="0.5" ValueChanged="Preamp_Changed" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Baisse le préampli si le son sature quand tu montes beaucoup les basses." />
+                    </StackPanel>
+                </StackPanel>
+            </PivotItem>
+
+            <!-- ================= CONCERT ================= -->
+            <PivotItem Header="Mode concert">
+                <StackPanel Spacing="14" Padding="4,8,4,8">
+                    <Grid>
+                        <TextBlock Text="Ajoute l'acoustique d'une salle : réverbération et écho. (« mode studio » à la voix marche aussi.)" Opacity="0.75" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,140,0" />
+                        <ToggleSwitch x:Name="ConcertToggle" HorizontalAlignment="Right" OnContent="Activé" OffContent="Désactivé" Toggled="ConcertToggle_Toggled" />
+                    </Grid>
+                    <ComboBox x:Name="ConcertPresetBox" Header="Lieu" Width="220" SelectionChanged="ConcertPreset_Changed" />
+                    <StackPanel x:Name="ConcertSliders" Spacing="6" />
+                </StackPanel>
+            </PivotItem>
+        </Pivot>
+    </StackPanel>
+</UserControl>
