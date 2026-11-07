@@ -33,6 +33,8 @@ public sealed partial class SettingsWindow : Window
         _hwnd = WindowNative.GetWindowHandle(this);
         double scale = Win32.ScaleFor(_hwnd);
         AppWindow.Resize(new SizeInt32((int)(1060 * scale), (int)(780 * scale)));
+        var icon = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "LucieIcon.ico");
+        if (File.Exists(icon)) AppWindow.SetIcon(icon);
 
         LoadValues();
         Nav.SelectedItem = Nav.MenuItems[0];

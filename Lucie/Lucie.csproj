@@ -7,6 +7,7 @@
     <RootNamespace>Lucie</RootNamespace>
     <AssemblyName>Lucie</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\LucieIcon.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -33,6 +34,8 @@
   <ItemGroup>
     <!-- Le modèle vocal (voir README) est copié à côté de l'exe s'il est présent -->
     <None Include="VoiceModel\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Icône (fichier .exe, fenêtres, barre des tâches) -->
+    <None Include="Assets\LucieIcon.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
