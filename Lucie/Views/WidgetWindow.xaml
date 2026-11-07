@@ -63,6 +63,12 @@
                     </LinearGradientBrush>
                 </Border.BorderBrush>
 
+                <Grid x:Name="PillLayout">
+                <Grid.RowDefinitions>
+                    <RowDefinition x:Name="TopRow" Height="64" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
                 <Grid x:Name="PillContent" Padding="16,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -147,6 +153,45 @@
                             </Button>
                         </StackPanel>
                     </Grid>
+                </Grid>
+
+                <!-- Petits boutons qui apparaissent quand la souris passe sur Lucie -->
+                <StackPanel x:Name="Toolbar" Grid.Row="1" Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Center" VerticalAlignment="Top" Opacity="0" IsHitTestVisible="False">
+                    <StackPanel.RenderTransform>
+                        <TranslateTransform x:Name="ToolbarShift" Y="-6" />
+                    </StackPanel.RenderTransform>
+                    <Button x:Name="MicButton" Width="34" Height="34" CornerRadius="17" Padding="0"
+                            Background="Transparent" BorderThickness="0" Click="Mic_Click"
+                            ToolTipService.ToolTip="Couper le micro">
+                        <Grid>
+                            <FontIcon Glyph="&#xE720;" FontSize="14" Foreground="#A9B0BF" />
+                            <Line x:Name="MicSlash" X1="2" Y1="16" X2="16" Y2="2" Width="18" Height="18"
+                                  Stroke="#FF8A8A" StrokeThickness="1.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Visibility="Collapsed" />
+                        </Grid>
+                    </Button>
+                    <Button x:Name="TypeButton" Width="34" Height="34" CornerRadius="17" Padding="0"
+                            Background="Transparent" BorderThickness="0" Click="Type_Click"
+                            ToolTipService.ToolTip="Écrire une commande">
+                        <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#A9B0BF" />
+                        <FlyoutBase.AttachedFlyout>
+                            <Flyout x:Name="TypeFlyout" Placement="Bottom" ShouldConstrainToRootBounds="False">
+                                <StackPanel Spacing="8" Width="280">
+                                    <TextBox x:Name="CommandBox" PlaceholderText="Écris une commande… (ex. ouvre discord)"
+                                             KeyDown="CommandBox_KeyDown" />
+                                    <TextBlock Text="Entrée pour envoyer · Échap pour fermer" FontSize="11.5"
+                                               Foreground="{StaticResource LucieMuted}" />
+                                </StackPanel>
+                            </Flyout>
+                        </FlyoutBase.AttachedFlyout>
+                    </Button>
+                    <Button x:Name="SettingsButton" Width="34" Height="34" CornerRadius="17" Padding="0"
+                            Background="Transparent" BorderThickness="0" Click="Settings_Click"
+                            ToolTipService.ToolTip="Paramètres">
+                        <FontIcon Glyph="&#xE713;" FontSize="14" Foreground="#A9B0BF" />
+                    </Button>
+                </StackPanel>
                 </Grid>
             </Border>
 

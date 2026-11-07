@@ -30,6 +30,7 @@ public sealed class SpeechService : IDisposable
     private VoskRecognizer? _recognizer;
     private WaveInEvent? _wave;
     private volatile bool _recording;
+    private bool _muted;
     private bool _awake;
     private bool _alwaysListen;
     private DateTime _deadline;
@@ -45,6 +46,24 @@ public sealed class SpeechService : IDisposable
     public event Action<string>? Heard;
 
     public bool ModelAvailable => _model is not null;
+
+    /// <summary>
+    /// Micro coupé : Lucie n'écoute plus son nom. Un clic sur le widget ou le raccourci
+    /// permet quand même de lui parler ponctuellement.
+    /// </summary>
+    public bool Muted
+    {
+        get => _muted;
+        set
+        {
+            if (_muted == value) return;
+            _muted = value;
+            bool awake;
+            lock (_lock) awake = _awake;
+            if (_muted && !awake) StopAudioSoon();
+            else if (!_muted && _alwaysListen) StartAudio();
+        }
+    }
     public bool IsAwake { get { lock (_lock) return _awake; } }
     public string LastHeard { get; private set; } = "";
 
@@ -123,7 +142,7 @@ public sealed class SpeechService : IDisposable
             return;
         }
 
-        if (_alwaysListen) StartAudio();
+        if (_alwaysListen && !_muted) StartAudio();
         if (_model is not null) Ready?.Invoke();
     }
 
@@ -153,7 +172,7 @@ public sealed class SpeechService : IDisposable
             _awake = false;
             _recognizer?.Reset();
         }
-        if (!_alwaysListen) StopAudioSoon();
+        if (!_alwaysListen || _muted) StopAudioSoon();
     }
 
     private void OnAudio(object? sender, WaveInEventArgs e)
@@ -187,7 +206,7 @@ public sealed class SpeechService : IDisposable
                         _deadline = now + ListenWindow; // il a juste dit « Salut Lucie » : on attend la suite
                     }
                 }
-                else if (_alwaysListen && wake >= 0)
+                else if (_alwaysListen && !_muted && wake >= 0)
                 {
                     var command = AfterName(words, wake);
                     if (command.Length > 0)
@@ -207,7 +226,7 @@ public sealed class SpeechService : IDisposable
             else
             {
                 var partial = Words(Field(_recognizer.PartialResult(), "partial"));
-                if (!_awake && _alwaysListen && FindName(partial) >= 0)
+                if (!_awake && _alwaysListen && !_muted && FindName(partial) >= 0)
                 {
                     // Réaction immédiate dès qu'on entend son nom
                     _awake = true;
@@ -235,7 +254,7 @@ public sealed class SpeechService : IDisposable
         }
 
         after?.Invoke();
-        if (finished && !_alwaysListen) StopAudioSoon();
+        if (finished && (!_alwaysListen || _muted)) StopAudioSoon();
     }
 
     private void Report(string text)

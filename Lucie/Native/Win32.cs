@@ -77,11 +77,11 @@ internal static class Win32
     [DllImport("user32.dll")]
     private static extern int SetWindowRgn(IntPtr hWnd, IntPtr hRgn, bool redraw);
 
-    /// <summary>Découpe la fenêtre en forme de gélule (bouts entièrement ronds).</summary>
-    public static void SetCapsuleRegion(IntPtr hwnd, int x, int y, int width, int height)
+    /// <summary>Découpe la fenêtre en rectangle aux coins arrondis (diamètre des coins en pixels).</summary>
+    public static void SetRoundRegion(IntPtr hwnd, int x, int y, int width, int height, int diameter)
     {
         if (width <= 0 || height <= 0) return;
-        int diameter = Math.Min(width, height);
+        diameter = Math.Clamp(diameter, 0, Math.Min(width, height));
         IntPtr region = CreateRoundRectRgn(x, y, x + width + 1, y + height + 1, diameter, diameter);
         if (SetWindowRgn(hwnd, region, true) == 0)
             DeleteObject(region); // sinon Windows en devient propriétaire

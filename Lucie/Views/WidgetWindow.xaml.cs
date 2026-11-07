@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Numerics;
 using Lucie.Models;
 using Lucie.Native;
@@ -7,6 +8,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Animation;
@@ -19,8 +21,9 @@ using WinRT.Interop;
 namespace Lucie.Views;
 
 /// <summary>
-/// Le widget flottant : une gélule en verre dépoli, toujours au premier plan.
-/// La fenêtre est découpée exactement à la forme du widget (bouts entièrement ronds).
+/// Le widget flottant : une gélule noire toujours au premier plan.
+/// Au survol, elle s'agrandit en carré arrondi et montre 3 petits boutons.
+/// Toutes les tailles et formes sont animées image par image pour rester fluides.
 /// </summary>
 public sealed partial class WidgetWindow : Window
 {
@@ -33,20 +36,36 @@ public sealed partial class WidgetWindow : Window
     private readonly IntPtr _hwnd;
     private readonly DispatcherQueue _dispatcher;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(33) };
-    private readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromSeconds(6) };
     private readonly DispatcherTimer _dragTimer = new() { Interval = TimeSpan.FromMilliseconds(8) };
     private readonly HotkeyService _hotkeys;
-    private Storyboard? _hostStory;
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+
     private IRandomAccessStreamReference? _shownThumbnail;
 
+    // État
     private bool _listening;
-    private bool _expanded;
+    private bool _expanded;          // mode lecteur
+    private bool _collapsing;
     private bool _near;
     private bool _sleeping;
     private bool _pointerInside;
+    private bool _hover;             // menu du survol ouvert
+    private bool _flyoutOpen;
+    private bool _menuOpen;
     private DateTime _doneUntil;
     private DateTime _listenStarted;
+    private DateTime _collapseAt = DateTime.MaxValue;
     private FaceMood _appliedMood = FaceMood.Idle;
+
+    // Survol / caresse
+    private double _insideSince = -1, _outsideSince = -1;
+    private Win32.POINT _lastCursor;
+    private double _stillSince;
+
+    // Forme animée (en DIP)
+    private double _curW, _curH, _curR, _hoverP;
+    private double _winW, _winH;      // taille du contenu pour laquelle la fenêtre est dimensionnée
+    private double _lastFrame;
 
     // Déplacement en restant appuyé
     private bool _pressed;
@@ -63,8 +82,10 @@ public sealed partial class WidgetWindow : Window
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
         SetupChrome();
-        SetupBackdrop();
-        SetupTransitions();
+        SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
+        PillHost.Margin = new Thickness(Edge);
+        Player.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
+        PillHost.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(500) };
 
         // L'éclat « c'est fait » ne doit pas bloquer le contour une fois terminé.
         var doneStory = (Storyboard)Root.Resources["DoneStory"];
@@ -73,16 +94,18 @@ public sealed partial class WidgetWindow : Window
         _hotkeys = new HotkeyService(_hwnd);
         _hotkeys.Pressed += () => _dispatcher.TryEnqueue(ToggleListen);
 
+        // Forme de départ
+        var (w, h, r) = TargetShape();
+        _curW = w; _curH = h; _curR = r;
         ApplySettings();
 
-        // Souris : rester appuyé + bouger = déplacer où tu veux ; simple clic = parler à Lucie ; clic droit = menu.
+        // Souris : rester appuyé + bouger = déplacer ; simple clic = parler à Lucie ; clic droit = menu.
         PillHost.PointerPressed += OnPointerPressed;
         _dragTimer.Tick += OnDragTick;
         PillHost.RightTapped += (_, e) => { ShowMenu(); e.Handled = true; };
 
-        // La forme de la fenêtre suit la taille du widget.
-        Root.SizeChanged += (_, _) => UpdateRegion();
-        PillHost.SizeChanged += (_, _) => UpdateRegion();
+        TypeFlyout.Opened += (_, _) => _flyoutOpen = true;
+        TypeFlyout.Closed += (_, _) => _flyoutOpen = false;
 
         // Voix
         App.Speech.WakeDetected += () => _dispatcher.TryEnqueue(() =>
@@ -109,18 +132,13 @@ public sealed partial class WidgetWindow : Window
         // Paramètres
         App.Settings.Changed += (_, _) => _dispatcher.TryEnqueue(ApplySettings);
 
-        _collapseTimer.Tick += (_, _) =>
-        {
-            if (_pointerInside) return;
-            _collapseTimer.Stop();
-            Collapse();
-        };
-
         _tick.Tick += OnTick;
         _tick.Start();
+        CompositionTarget.Rendering += OnRender;
 
         Closed += (_, _) =>
         {
+            CompositionTarget.Rendering -= OnRender;
             _tick.Stop();
             _dragTimer.Stop();
             _hotkeys.Dispose();
@@ -144,25 +162,6 @@ public sealed partial class WidgetWindow : Window
         Win32.StripFrame(_hwnd);
     }
 
-    /// <summary>
-    /// Fond de fenêtre entièrement transparent : seule la gélule est dessinée,
-    /// avec des bords arrondis lissés (pas de rectangle, pas de liseré).
-    /// </summary>
-    private void SetupBackdrop()
-    {
-        SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
-        PillHost.Margin = new Thickness(Edge);
-    }
-
-    private void SetupTransitions()
-    {
-        Player.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
-        PillHost.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(500) };
-        Face.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(220) };
-        Face.SizeChanged += (_, _) =>
-            Face.CenterPoint = new Vector3((float)(Face.ActualWidth / 2), (float)(Face.ActualHeight / 2), 0);
-    }
-
     private double SizeFactor => App.Settings.Current.Size switch
     {
         WidgetSize.Small => 0.8,
@@ -170,11 +169,20 @@ public sealed partial class WidgetWindow : Window
         _ => 1.0
     };
 
-    private (double W, double H) CompactSize()
+    /// <summary>Taille et arrondi que le widget doit atteindre selon son état (DIP).</summary>
+    private (double W, double H, double R) TargetShape()
     {
         double k = SizeFactor;
+        if (_expanded) return (ExpandedWidth, ExpandedHeight, ExpandedHeight / 2);
+
         double w = _listening ? 132 : _appliedMood == FaceMood.Sleep ? 124 : 104;
-        return (w * k, 64 * k);
+        double compactH = 64;
+        if (_hover)
+        {
+            w = Math.Max(w, 136);
+            return (w * k, (compactH + 44) * k, 28 * k);
+        }
+        return (w * k, compactH * k, compactH * k / 2);
     }
 
     private void ApplySettings()
@@ -189,29 +197,24 @@ public sealed partial class WidgetWindow : Window
         body.GradientStops.Add(new GradientStop { Color = Colors.Black, Offset = 1 });
         Pill.Background = body;
 
-        // Le widget « s'accroche » au bord choisi : il grandit vers l'intérieur de l'écran.
+        // De quel côté le widget grandit (lecteur, menu du survol).
         if (s.Position == WidgetPosition.Custom)
         {
-            // Posé librement : il grandit du côté où il y a de la place.
             PillHost.HorizontalAlignment = s.AnchorX < 0 ? HorizontalAlignment.Left : s.AnchorX > 0 ? HorizontalAlignment.Right : HorizontalAlignment.Center;
-            PillHost.VerticalAlignment = s.AnchorY < 0 ? VerticalAlignment.Top : s.AnchorY > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Center;
+            PillHost.VerticalAlignment = s.AnchorY > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Top;
         }
         else
         {
             int col = (int)s.Position % 3, row = (int)s.Position / 3;
             PillHost.HorizontalAlignment = col switch { 0 => HorizontalAlignment.Left, 1 => HorizontalAlignment.Center, _ => HorizontalAlignment.Right };
-            PillHost.VerticalAlignment = row switch { 0 => VerticalAlignment.Top, 1 => VerticalAlignment.Center, _ => VerticalAlignment.Bottom };
+            PillHost.VerticalAlignment = row == 2 ? VerticalAlignment.Bottom : VerticalAlignment.Top;
         }
 
         ApplyLayout();
-        var (w, h) = _expanded ? (ExpandedWidth, ExpandedHeight) : CompactSize();
-        _hostStory?.Stop();
-        _hostStory = null;
-        PillHost.Width = w;
-        PillHost.Height = h;
-        PlaceWindow(w, h);
+        if (!_dragging) PlaceWindow(Math.Max(_curW, TargetShape().W), Math.Max(_curH, TargetShape().H));
 
         _hotkeys.Register(s.TalkHotkey);
+        UpdateMicButton();
     }
 
     private void ApplyLayout()
@@ -219,26 +222,25 @@ public sealed partial class WidgetWindow : Window
         double k = SizeFactor;
         if (_expanded)
         {
+            TopRow.Height = new GridLength(ExpandedHeight);
             Face.Width = 64; Face.Height = 46;
             Grid.SetColumnSpan(LeftStack, 1);
             LeftStack.HorizontalAlignment = HorizontalAlignment.Left;
             PillContent.Padding = new Thickness(22, 0, 18, 0);
-            Pill.CornerRadius = new CornerRadius(ExpandedHeight / 2);
         }
         else
         {
+            TopRow.Height = new GridLength(64 * k);
             Face.Width = 56 * k; Face.Height = 40 * k;
             Grid.SetColumnSpan(LeftStack, 2);
             LeftStack.HorizontalAlignment = HorizontalAlignment.Center;
             PillContent.Padding = new Thickness(16 * k, 0, 16 * k, 0);
-            Pill.CornerRadius = new CornerRadius(32 * k);
         }
-        Ring.CornerRadius = Pill.CornerRadius;
         Bars.Visibility = _listening && !_expanded ? Visibility.Visible : Visibility.Collapsed;
         Zs.Visibility = _appliedMood == FaceMood.Sleep && !_expanded && !_listening ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    /// <summary>Place et dimensionne la fenêtre selon la position choisie (pixels physiques).</summary>
+    /// <summary>Place et dimensionne la fenêtre pour un contenu de cette taille (DIP).</summary>
     private void PlaceWindow(double widthDip, double heightDip)
     {
         var s = App.Settings.Current;
@@ -254,43 +256,31 @@ public sealed partial class WidgetWindow : Window
         {
             area = DisplayArea.GetFromPoint(new PointInt32((int)cx, (int)cy), DisplayAreaFallback.Nearest).WorkArea;
 
-            // (cx, cy) = centre du widget « au repos ». Il grandit du côté choisi
-            // pour que le bord collé à l'écran ne bouge pas.
+            // (cx, cy) = centre du widget « au repos ». Le bord collé à l'écran ne bouge pas quand il grandit.
             var (bw, bh) = BaseSizePx(scale);
             x = s.AnchorX < 0 ? (int)(cx - bw / 2) : s.AnchorX > 0 ? (int)(cx + bw / 2 - w) : (int)(cx - w / 2.0);
-            y = s.AnchorY < 0 ? (int)(cy - bh / 2) : s.AnchorY > 0 ? (int)(cy + bh / 2 - h) : (int)(cy - h / 2.0);
+            y = s.AnchorY > 0 ? (int)(cy + bh / 2 - h) : (int)(cy - bh / 2);
         }
         else
         {
             area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
+            var (bw, bh) = BaseSizePx(scale);
             int col = (int)s.Position % 3, row = (int)s.Position / 3;
             x = col switch { 0 => area.X + edge, 1 => area.X + (area.Width - w) / 2, _ => area.X + area.Width - w - edge };
-            y = row switch { 0 => area.Y + edge, 1 => area.Y + (area.Height - h) / 2, _ => area.Y + area.Height - h - edge };
+            y = row switch
+            {
+                0 => area.Y + edge,
+                1 => area.Y + (area.Height - (int)bh) / 2,
+                _ => area.Y + area.Height - h - edge
+            };
         }
 
         x = Math.Max(area.X, Math.Min(x, area.X + area.Width - w));
         y = Math.Max(area.Y, Math.Min(y, area.Y + area.Height - h));
         AppWindow.MoveAndResize(new RectInt32(x, y, w, h));
+        _winW = widthDip;
+        _winH = heightDip;
         UpdateRegion();
-    }
-
-    /// <summary>Découpe la fenêtre à la forme exacte de la gélule.</summary>
-    private void UpdateRegion()
-    {
-        double w = PillHost.ActualWidth > 0 ? PillHost.ActualWidth : PillHost.Width;
-        double h = PillHost.ActualHeight > 0 ? PillHost.ActualHeight : PillHost.Height;
-        if (double.IsNaN(w) || double.IsNaN(h) || w <= 0 || h <= 0) return;
-
-        double scale = Win32.ScaleFor(_hwnd);
-        var bounds = PillHost.ActualWidth > 0
-            ? PillHost.TransformToVisual(Root).TransformBounds(new Rect(0, 0, w, h))
-            : new Rect(0, 0, w, h);
-
-        // La découpe englobe la petite marge transparente : son bord reste invisible,
-        // c'est la gélule dessinée (lissée) qu'on voit.
-        Win32.SetCapsuleRegion(_hwnd,
-            (int)Math.Floor((bounds.X - Edge) * scale), (int)Math.Floor((bounds.Y - Edge) * scale),
-            (int)Math.Ceiling((bounds.Width + 2 * Edge) * scale), (int)Math.Ceiling((bounds.Height + 2 * Edge) * scale));
     }
 
     /// <summary>Taille de la fenêtre quand le widget est au repos (pixels physiques).</summary>
@@ -300,52 +290,83 @@ public sealed partial class WidgetWindow : Window
         return ((104 * k + 2 * Edge) * scale, (64 * k + 2 * Edge) * scale);
     }
 
-    private void AnimateHost(double w, double h, Action? done = null)
+    /// <summary>Découpe la fenêtre à la forme du widget (avec sa petite marge transparente).</summary>
+    private void UpdateRegion()
     {
-        _hostStory?.Stop();
+        double w = _curW, h = _curH;
+        if (w <= 0 || h <= 0) return;
 
-        double fromW = PillHost.ActualWidth > 0 ? PillHost.ActualWidth : w;
-        double fromH = PillHost.ActualHeight > 0 ? PillHost.ActualHeight : h;
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var duration = new Duration(TimeSpan.FromMilliseconds(280));
+        double scale = Win32.ScaleFor(_hwnd);
+        double winW = _winW + 2 * Edge, winH = _winH + 2 * Edge;
 
-        var aw = new DoubleAnimation { From = fromW, To = w, Duration = duration, EasingFunction = ease, EnableDependentAnimation = true };
-        var ah = new DoubleAnimation { From = fromH, To = h, Duration = duration, EasingFunction = ease, EnableDependentAnimation = true };
-        Storyboard.SetTarget(aw, PillHost);
-        Storyboard.SetTargetProperty(aw, "Width");
-        Storyboard.SetTarget(ah, PillHost);
-        Storyboard.SetTargetProperty(ah, "Height");
-
-        var story = new Storyboard();
-        story.Children.Add(aw);
-        story.Children.Add(ah);
-        story.Completed += (_, _) =>
+        // Position de la gélule dans la fenêtre, selon l'alignement
+        double x = PillHost.HorizontalAlignment switch
         {
-            if (_hostStory != story) return;
-            PillHost.Width = w;
-            PillHost.Height = h;
-            story.Stop();
-            _hostStory = null;
-            done?.Invoke();
-            UpdateRegion();
+            HorizontalAlignment.Left => Edge,
+            HorizontalAlignment.Right => winW - Edge - w,
+            _ => (winW - w) / 2
         };
-        _hostStory = story;
-        story.Begin();
+        double y = PillHost.VerticalAlignment == VerticalAlignment.Bottom ? winH - Edge - h : Edge;
+
+        Win32.SetRoundRegion(_hwnd,
+            (int)Math.Floor((x - Edge) * scale), (int)Math.Floor((y - Edge) * scale),
+            (int)Math.Ceiling((w + 2 * Edge) * scale), (int)Math.Ceiling((h + 2 * Edge) * scale),
+            (int)Math.Round((_curR + Edge) * 2 * scale));
     }
 
-    private void ResizeCompact()
+    // ───────────────────────── Animation de la forme ─────────────────────────
+
+    private void OnRender(object? sender, object e)
     {
-        if (_expanded) return;
-        var (w, h) = CompactSize();
-        if (w >= PillHost.ActualWidth)
+        double now = _clock.Elapsed.TotalSeconds;
+        double dt = Math.Clamp(now - _lastFrame, 0, 0.1);
+        _lastFrame = now;
+
+        var (tw, th, tr) = TargetShape();
+
+        // La fenêtre doit toujours pouvoir contenir le widget pendant qu'il grandit.
+        if (!_dragging && (Math.Max(tw, _curW) > _winW + 0.5 || Math.Max(th, _curH) > _winH + 0.5))
+            PlaceWindow(Math.Max(tw, _curW), Math.Max(th, _curH));
+
+        double a = 1 - Math.Exp(-dt * 13);
+        bool changed = false;
+        changed |= Approach(ref _curW, tw, a);
+        changed |= Approach(ref _curH, th, a);
+        changed |= Approach(ref _curR, tr, a);
+
+        if (changed || double.IsNaN(PillHost.Width))
         {
-            PlaceWindow(w, h);
-            AnimateHost(w, h);
+            PillHost.Width = _curW;
+            PillHost.Height = _curH;
+            Pill.CornerRadius = new CornerRadius(_curR);
+            Ring.CornerRadius = Pill.CornerRadius;
+            UpdateRegion();
         }
-        else
+
+        // Une fois l'animation finie, la fenêtre reprend la taille juste nécessaire.
+        if (!changed && !_dragging && (_winW > tw + 0.5 || _winH > th + 0.5))
+            PlaceWindow(tw, th);
+
+        // Boutons du survol : apparaissent en glissant doucement
+        double hoverTarget = _hover ? 1 : 0;
+        _hoverP += (hoverTarget - _hoverP) * (1 - Math.Exp(-dt * (_hover ? 10 : 16)));
+        if (Math.Abs(_hoverP - hoverTarget) < 0.005) _hoverP = hoverTarget;
+        double p = _hoverP * _hoverP * (3 - 2 * _hoverP);
+        Toolbar.Opacity = Math.Clamp((p - 0.25) / 0.75, 0, 1);
+        ToolbarShift.Y = (1 - p) * -8;
+        Toolbar.IsHitTestVisible = _hover && p > 0.5;
+    }
+
+    private static bool Approach(ref double value, double target, double a)
+    {
+        if (Math.Abs(target - value) < 0.15)
         {
-            AnimateHost(w, h, () => PlaceWindow(w, h));
+            if (value == target) return false;
+            value = target;
+            return true;
         }
+        value += (target - value) * a;
+        return true;
     }
 
     // ───────────────────────── Lecteur ─────────────────────────
@@ -353,33 +374,41 @@ public sealed partial class WidgetWindow : Window
     private void Expand()
     {
         if (!App.Media.HasTrack) return;
-        _collapseTimer.Stop();
-        _collapseTimer.Start();
+        _collapseAt = DateTime.Now.AddSeconds(6);
+        if (_collapsing)
+        {
+            _collapsing = false;
+            Player.Opacity = 1;
+            return;
+        }
         if (_expanded) return;
 
         _expanded = true;
+        _hover = false;
         UpdatePlayer();
         ApplyLayout();
         Player.Visibility = Visibility.Visible;
-
-        PlaceWindow(ExpandedWidth, ExpandedHeight);
-        AnimateHost(ExpandedWidth, ExpandedHeight, () => Player.Opacity = 1);
+        _dispatcher.TryEnqueue(DispatcherQueuePriority.Low, async () =>
+        {
+            await Task.Delay(220);
+            if (_expanded) Player.Opacity = 1;
+        });
     }
 
     private void Collapse()
     {
-        if (!_expanded) return;
-        _expanded = false;
+        if (!_expanded || _collapsing) return;
+        _collapsing = true;
         Player.Opacity = 0;
 
         _dispatcher.TryEnqueue(DispatcherQueuePriority.Low, async () =>
         {
             await Task.Delay(180);
-            if (_expanded) return;
+            if (!_collapsing) return;   // ré-ouvert entre-temps
+            _collapsing = false;
+            _expanded = false;
             Player.Visibility = Visibility.Collapsed;
             ApplyLayout();
-            var (w, h) = CompactSize();
-            AnimateHost(w, h, () => PlaceWindow(w, h));
         });
     }
 
@@ -417,6 +446,53 @@ public sealed partial class WidgetWindow : Window
     private async void PlayPause_Click(object sender, RoutedEventArgs e) => await App.Media.TogglePlayPauseAsync();
     private async void Next_Click(object sender, RoutedEventArgs e) => await App.Media.NextAsync();
 
+    // ───────────────────────── Boutons du survol ─────────────────────────
+
+    private void Mic_Click(object sender, RoutedEventArgs e)
+    {
+        App.Speech.Muted = !App.Speech.Muted;
+        if (App.Speech.Muted && _listening)
+        {
+            App.Speech.Cancel();
+            SetListening(false);
+        }
+        UpdateMicButton();
+        Face.Blink();
+    }
+
+    private void UpdateMicButton()
+    {
+        bool muted = App.Speech?.Muted ?? false;
+        MicSlash.Visibility = muted ? Visibility.Visible : Visibility.Collapsed;
+        ToolTipService.SetToolTip(MicButton, muted ? "Réactiver le micro" : "Couper le micro");
+    }
+
+    private void Type_Click(object sender, RoutedEventArgs e)
+    {
+        Activate();   // pour pouvoir taper au clavier
+        CommandBox.Text = "";
+        FlyoutBase.ShowAttachedFlyout(TypeButton);
+        CommandBox.Focus(FocusState.Programmatic);
+    }
+
+    private async void CommandBox_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            TypeFlyout.Hide();
+            e.Handled = true;
+        }
+        else if (e.Key == Windows.System.VirtualKey.Enter)
+        {
+            var text = CommandBox.Text.Trim();
+            TypeFlyout.Hide();
+            e.Handled = true;
+            if (text.Length > 0) await HandleCommandAsync(text);
+        }
+    }
+
+    private void Settings_Click(object sender, RoutedEventArgs e) => App.Current.OpenSettings();
+
     // ───────────────────────── Voix ─────────────────────────
 
     private void ToggleListen()
@@ -436,7 +512,11 @@ public sealed partial class WidgetWindow : Window
     {
         if (_listening == on) return;
         _listening = on;
-        if (on) _listenStarted = DateTime.Now;
+        if (on)
+        {
+            _listenStarted = DateTime.Now;
+            _hover = false;
+        }
 
         var story = (Storyboard)Root.Resources["ListenStory"];
         if (on) story.Begin();
@@ -445,9 +525,7 @@ public sealed partial class WidgetWindow : Window
             story.Stop();
             Ring.Opacity = 0;
         }
-
         ApplyLayout();
-        ResizeCompact();
     }
 
     private async Task HandleCommandAsync(string heard)
@@ -496,8 +574,10 @@ public sealed partial class WidgetWindow : Window
     private void OnTick(object? sender, object e)
     {
         var s = App.Settings.Current;
+        double now = _clock.Elapsed.TotalSeconds;
+        bool petting = false;
 
-        if (!_dragging && Win32.GetCursorPos(out var cursor) && Face.ActualWidth > 0 && PillHost.ActualWidth > 0)
+        if (!_dragging && Win32.GetCursorPos(out var cursor) && PillHost.ActualWidth > 0)
         {
             double scale = Win32.ScaleFor(_hwnd);
             var pos = AppWindow.Position;
@@ -511,25 +591,51 @@ public sealed partial class WidgetWindow : Window
             double dy = Math.Max(Math.Max(top - cursor.Y, 0), cursor.Y - bottom);
             double distance = Math.Sqrt(dx * dx + dy * dy);
 
-            _pointerInside = distance <= 0;
+            _pointerInside = distance <= 1;
             _near = distance <= s.ProximityPx * scale;
 
-            if (_near)
+            // Souris immobile ?
+            if (Math.Abs(cursor.X - _lastCursor.X) + Math.Abs(cursor.Y - _lastCursor.Y) > 3)
+            {
+                _stillSince = now;
+                _lastCursor = cursor;
+            }
+
+            if (_near || _pointerInside)
             {
                 // Elle te suit des yeux
                 var center = Face.TransformToVisual(Root).TransformPoint(new Point(Face.ActualWidth / 2, Face.ActualHeight / 2));
                 double fx = pos.X + center.X * scale, fy = pos.Y + center.Y * scale;
                 double vx = cursor.X - fx, vy = cursor.Y - fy;
                 double len = Math.Sqrt(vx * vx + vy * vy);
-                float strength = (float)Math.Min(1, len / (120 * scale));
+                float strength = (float)Math.Min(1, len / (70 * scale));
                 Face.SetGaze(len < 1 ? Vector2.Zero : new Vector2((float)(vx / len), (float)(vy / len)) * strength);
+
+                // Caresse : la souris posée sur son visage
+                double faceRadius = Math.Max(Face.ActualWidth, Face.ActualHeight) * 0.65 * scale;
+                petting = _pointerInside && len < faceRadius && now - _stillSince > 0.35;
             }
             else
             {
                 Face.SetGaze(null);
             }
+
+            // Menu du survol : s'ouvre après un court instant, se referme quand la souris s'éloigne
+            if (_pointerInside) { if (_insideSince < 0) _insideSince = now; _outsideSince = -1; }
+            else { if (_outsideSince < 0) _outsideSince = now; _insideSince = -1; }
+
+            bool wantHover = !_expanded && !_listening && !_pressed &&
+                             ((_insideSince >= 0 && now - _insideSince > 0.12) ||
+                              (_hover && _outsideSince >= 0 && now - _outsideSince < 0.45) ||
+                              _flyoutOpen || _menuOpen);
+            if (wantHover != _hover)
+            {
+                _hover = wantHover;
+                if (_hover) Face.Blink();
+            }
         }
 
+        Face.Happy = petting;
         _sleeping = Win32.GetIdleTime().TotalMinutes >= Math.Max(1, s.SleepMinutes);
 
         // Sécurité : ne jamais rester bloquée en mode écoute.
@@ -545,8 +651,8 @@ public sealed partial class WidgetWindow : Window
         if (_expanded)
         {
             TrackProgress.Value = App.Media.Progress;
-            if (_pointerInside) _collapseTimer.Stop();
-            else if (!_collapseTimer.IsEnabled) _collapseTimer.Start();
+            if (_pointerInside) _collapseAt = DateTime.Now.AddSeconds(2);
+            else if (DateTime.Now > _collapseAt) Collapse();
         }
     }
 
@@ -555,14 +661,13 @@ public sealed partial class WidgetWindow : Window
         if (_listening) return FaceMood.Listening;
         if (DateTime.Now < _doneUntil) return FaceMood.Done;
         if (App.Media.IsPlaying) return FaceMood.Music;
-        if (_sleeping) return FaceMood.Sleep;
-        if (_near || _dragging) return FaceMood.Wow;
+        if (_sleeping && !_near) return FaceMood.Sleep;
+        if (_near || _dragging || _hover) return FaceMood.Wow;
         return FaceMood.Idle;
     }
 
     private void ApplyMood(FaceMood mood)
     {
-        bool sleepChanged = (mood == FaceMood.Sleep) != (_appliedMood == FaceMood.Sleep);
         _appliedMood = mood;
         Face.Mood = mood;
 
@@ -578,12 +683,7 @@ public sealed partial class WidgetWindow : Window
             PillHost.Opacity = 1;
         }
 
-        bool wow = mood == FaceMood.Wow;
-        Face.Scale = wow ? new Vector3(1.1f, 1.1f, 1f) : Vector3.One;
-        if (!_listening) Ring.Opacity = wow ? 0.55 : 0;
-
         ApplyLayout();
-        if (sleepChanged) ResizeCompact();
     }
 
     // ───────────────────────── Souris ─────────────────────────
@@ -615,9 +715,15 @@ public sealed partial class WidgetWindow : Window
             // Bouton relâché
             _dragTimer.Stop();
             _pressed = false;
-            if (_dragging) SaveDraggedPosition();
-            else ToggleListen();   // simple clic : parler à Lucie
-            _dragging = false;
+            if (_dragging)
+            {
+                _dragging = false;
+                SaveDraggedPosition();
+            }
+            else
+            {
+                ToggleListen();   // simple clic : parler à Lucie
+            }
             return;
         }
 
@@ -631,27 +737,34 @@ public sealed partial class WidgetWindow : Window
     private void SaveDraggedPosition()
     {
         var s = App.Settings.Current;
-        var pos = AppWindow.Position;
-        var size = AppWindow.Size;
         double scale = Win32.ScaleFor(_hwnd);
         var (bw, bh) = BaseSizePx(scale);
+        var pos = AppWindow.Position;
 
-        double cx = pos.X + size.Width / 2.0, cy = pos.Y + size.Height / 2.0;
+        // Rectangle réel de la gélule à l'écran (la fenêtre peut être plus grande qu'elle).
+        var bounds = PillHost.TransformToVisual(Root).TransformBounds(new Rect(0, 0, PillHost.ActualWidth, PillHost.ActualHeight));
+        double left = pos.X + (bounds.X - Edge) * scale, top = pos.Y + (bounds.Y - Edge) * scale;
+        double width = (bounds.Width + 2 * Edge) * scale, height = (bounds.Height + 2 * Edge) * scale;
+
+        double cx = left + width / 2, cy = top + height / 2;
         var area = DisplayArea.GetFromPoint(new PointInt32((int)cx, (int)cy), DisplayAreaFallback.Nearest).WorkArea;
 
-        // Tiers de l'écran : à gauche il grandit vers la droite, à droite vers la gauche, au milieu des deux côtés.
+        // À gauche il grandit vers la droite, à droite vers la gauche, au milieu des deux côtés.
+        // En haut de l'écran il s'ouvre vers le bas, en bas vers le haut.
         s.AnchorX = cx < area.X + area.Width / 3.0 ? -1 : cx > area.X + area.Width * 2 / 3.0 ? 1 : 0;
-        s.AnchorY = cy < area.Y + area.Height / 3.0 ? -1 : cy > area.Y + area.Height * 2 / 3.0 ? 1 : 0;
+        s.AnchorY = cy > area.Y + area.Height / 2.0 ? 1 : -1;
 
         s.Position = WidgetPosition.Custom;
-        s.CustomX = s.AnchorX < 0 ? pos.X + bw / 2 : s.AnchorX > 0 ? pos.X + size.Width - bw / 2 : cx;
-        s.CustomY = s.AnchorY < 0 ? pos.Y + bh / 2 : s.AnchorY > 0 ? pos.Y + size.Height - bh / 2 : cy;
+        s.CustomX = s.AnchorX < 0 ? left + bw / 2 : s.AnchorX > 0 ? left + width - bw / 2 : cx;
+        s.CustomY = s.AnchorY > 0 ? top + height - bh / 2 : top + bh / 2;
         App.Settings.Save();
     }
 
     private void ShowMenu()
     {
         var menu = new MenuFlyout { ShouldConstrainToRootBounds = false };
+        menu.Opened += (_, _) => _menuOpen = true;
+        menu.Closed += (_, _) => _menuOpen = false;
 
         var talk = new MenuFlyoutItem { Text = $"Parler à {App.Settings.Current.AssistantName}", Icon = new FontIcon { Glyph = "" } };
         talk.Click += (_, _) => App.Speech.ListenNow();
