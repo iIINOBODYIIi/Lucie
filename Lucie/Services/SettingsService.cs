@@ -33,9 +33,10 @@ public sealed class SettingsService
                 var loaded = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath), Options);
                 if (loaded is not null)
                 {
-                    if (loaded.Commands is null || loaded.Commands.Count == 0)
-                        loaded.Commands = AppSettings.DefaultCommands();
+                    bool old = loaded.Version < AppSettings.CurrentVersion;
+                    loaded.Upgrade();
                     Current = loaded;
+                    if (old) Save();
                     return;
                 }
             }

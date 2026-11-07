@@ -7,56 +7,63 @@
 
     <Grid x:Name="Root" Background="Transparent">
         <Grid.Resources>
-            <!-- Petits Z du mode sommeil -->
+            <!-- Petits Z du sommeil, qui montent doucement en apparaissant puis en s'effaçant -->
             <Storyboard x:Key="SleepStory">
                 <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Z1" Storyboard.TargetProperty="Opacity" RepeatBehavior="Forever" BeginTime="0:0:0">
                     <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:0.9" Value="0.85" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:3.6" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0.8"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
+                    <EasingDoubleKeyFrame KeyTime="0:0:4.2" Value="0"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
                 </DoubleAnimationUsingKeyFrames>
-                <DoubleAnimation Storyboard.TargetName="Z1T" Storyboard.TargetProperty="TranslateY" From="6" To="-22" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:0" />
-                <DoubleAnimation Storyboard.TargetName="Z1T" Storyboard.TargetProperty="TranslateX" From="0" To="10" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:0" />
+                <DoubleAnimation Storyboard.TargetName="Z1T" Storyboard.TargetProperty="TranslateY" From="0" To="-22" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:0" />
+                <DoubleAnimation Storyboard.TargetName="Z1T" Storyboard.TargetProperty="TranslateX" From="0" To="5" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:0" />
 
-                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Z2" Storyboard.TargetProperty="Opacity" RepeatBehavior="Forever" BeginTime="0:0:1.2">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Z2" Storyboard.TargetProperty="Opacity" RepeatBehavior="Forever" BeginTime="0:0:1.4">
                     <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:0.9" Value="0.85" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:3.6" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0.8"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
+                    <EasingDoubleKeyFrame KeyTime="0:0:4.2" Value="0"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
                 </DoubleAnimationUsingKeyFrames>
-                <DoubleAnimation Storyboard.TargetName="Z2T" Storyboard.TargetProperty="TranslateY" From="6" To="-22" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:1.2" />
-                <DoubleAnimation Storyboard.TargetName="Z2T" Storyboard.TargetProperty="TranslateX" From="0" To="10" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:1.2" />
+                <DoubleAnimation Storyboard.TargetName="Z2T" Storyboard.TargetProperty="TranslateY" From="0" To="-22" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:1.4" />
+                <DoubleAnimation Storyboard.TargetName="Z2T" Storyboard.TargetProperty="TranslateX" From="0" To="5" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:1.4" />
 
-                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Z3" Storyboard.TargetProperty="Opacity" RepeatBehavior="Forever" BeginTime="0:0:2.4">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Z3" Storyboard.TargetProperty="Opacity" RepeatBehavior="Forever" BeginTime="0:0:2.8">
                     <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:0.9" Value="0.85" />
-                    <LinearDoubleKeyFrame KeyTime="0:0:3.6" Value="0" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0.8"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
+                    <EasingDoubleKeyFrame KeyTime="0:0:4.2" Value="0"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseInOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
                 </DoubleAnimationUsingKeyFrames>
-                <DoubleAnimation Storyboard.TargetName="Z3T" Storyboard.TargetProperty="TranslateY" From="6" To="-22" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:2.4" />
-                <DoubleAnimation Storyboard.TargetName="Z3T" Storyboard.TargetProperty="TranslateX" From="0" To="10" Duration="0:0:3.6" RepeatBehavior="Forever" BeginTime="0:0:2.4" />
+                <DoubleAnimation Storyboard.TargetName="Z3T" Storyboard.TargetProperty="TranslateY" From="0" To="-22" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:2.8" />
+                <DoubleAnimation Storyboard.TargetName="Z3T" Storyboard.TargetProperty="TranslateX" From="0" To="5" Duration="0:0:4.2" RepeatBehavior="Forever" BeginTime="0:0:2.8" />
             </Storyboard>
 
-            <!-- Halo qui respire + petites barres pendant l'écoute -->
+            <!-- Contour qui « respire » + petites barres pendant l'écoute -->
             <Storyboard x:Key="ListenStory">
-                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" From="0.7" To="0" Duration="0:0:1.6" RepeatBehavior="Forever" />
-                <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleX" From="1" To="1.12" Duration="0:0:1.6" RepeatBehavior="Forever" />
-                <DoubleAnimation Storyboard.TargetName="RingScale" Storyboard.TargetProperty="ScaleY" From="1" To="1.18" Duration="0:0:1.6" RepeatBehavior="Forever" />
+                <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" From="0.15" To="0.9" Duration="0:0:0.8" AutoReverse="True" RepeatBehavior="Forever" />
                 <DoubleAnimation Storyboard.TargetName="Bar1S" Storyboard.TargetProperty="ScaleY" From="0.33" To="1" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" BeginTime="0:0:0" />
                 <DoubleAnimation Storyboard.TargetName="Bar2S" Storyboard.TargetProperty="ScaleY" From="0.33" To="1" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" BeginTime="0:0:0.2" />
                 <DoubleAnimation Storyboard.TargetName="Bar3S" Storyboard.TargetProperty="ScaleY" From="0.33" To="1" Duration="0:0:0.5" AutoReverse="True" RepeatBehavior="Forever" BeginTime="0:0:0.4" />
             </Storyboard>
+
+            <!-- Petit éclat de couleur quand une commande a réussi -->
+            <Storyboard x:Key="DoneStory">
+                <DoubleAnimationUsingKeyFrames Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity">
+                    <LinearDoubleKeyFrame KeyTime="0:0:0" Value="0" />
+                    <LinearDoubleKeyFrame KeyTime="0:0:0.15" Value="1" />
+                    <EasingDoubleKeyFrame KeyTime="0:0:1.4" Value="0"><EasingDoubleKeyFrame.EasingFunction><SineEase EasingMode="EaseOut" /></EasingDoubleKeyFrame.EasingFunction></EasingDoubleKeyFrame>
+                </DoubleAnimationUsingKeyFrames>
+            </Storyboard>
         </Grid.Resources>
 
-        <!-- Marge transparente autour du widget : place pour le halo, le badge et les Z -->
-        <Grid x:Name="PillHost" Margin="24" HorizontalAlignment="Right" VerticalAlignment="Top">
+        <!-- Le widget : une gélule. La fenêtre est découpée exactement à cette forme. -->
+        <Grid x:Name="PillHost" HorizontalAlignment="Right" VerticalAlignment="Top">
 
-            <Border x:Name="Ring" CornerRadius="22" BorderThickness="2" BorderBrush="{StaticResource LucieAccent}"
-                    Opacity="0" RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
-                <Border.RenderTransform>
-                    <ScaleTransform x:Name="RingScale" />
-                </Border.RenderTransform>
-            </Border>
+            <Border x:Name="Pill" CornerRadius="32" BorderThickness="1">
+                <Border.BorderBrush>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#40FFFFFF" Offset="0" />
+                        <GradientStop Color="#0FFFFFFF" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.BorderBrush>
 
-            <Border x:Name="Pill" CornerRadius="22" BorderThickness="1" BorderBrush="#24FFFFFF" Background="#B31E212B">
-                <Grid x:Name="PillContent" Padding="14,0">
+                <Grid x:Name="PillContent" Padding="16,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -65,6 +72,8 @@
                     <StackPanel x:Name="LeftStack" Orientation="Horizontal" Spacing="6"
                                 HorizontalAlignment="Center" VerticalAlignment="Center" Grid.ColumnSpan="2">
                         <views:LucieFace x:Name="Face" Width="56" Height="40" />
+
+                        <!-- Barres d'écoute -->
                         <StackPanel x:Name="Bars" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center" Visibility="Collapsed">
                             <Rectangle Width="3" Height="18" RadiusX="1.5" RadiusY="1.5" Fill="{StaticResource LucieAccent}" RenderTransformOrigin="0.5,0.5">
                                 <Rectangle.RenderTransform><ScaleTransform x:Name="Bar1S" ScaleY="0.33" /></Rectangle.RenderTransform>
@@ -76,6 +85,19 @@
                                 <Rectangle.RenderTransform><ScaleTransform x:Name="Bar3S" ScaleY="0.33" /></Rectangle.RenderTransform>
                             </Rectangle>
                         </StackPanel>
+
+                        <!-- Z du sommeil -->
+                        <Canvas x:Name="Zs" Width="18" Height="40" VerticalAlignment="Center" Visibility="Collapsed" IsHitTestVisible="False">
+                            <TextBlock x:Name="Z1" Text="z" FontSize="9" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="0" Canvas.Top="24">
+                                <TextBlock.RenderTransform><CompositeTransform x:Name="Z1T" /></TextBlock.RenderTransform>
+                            </TextBlock>
+                            <TextBlock x:Name="Z2" Text="z" FontSize="11" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="4" Canvas.Top="22">
+                                <TextBlock.RenderTransform><CompositeTransform x:Name="Z2T" /></TextBlock.RenderTransform>
+                            </TextBlock>
+                            <TextBlock x:Name="Z3" Text="Z" FontSize="13" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="7" Canvas.Top="20">
+                                <TextBlock.RenderTransform><CompositeTransform x:Name="Z3T" /></TextBlock.RenderTransform>
+                            </TextBlock>
+                        </Canvas>
                     </StackPanel>
 
                     <!-- Mode lecteur -->
@@ -87,12 +109,16 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <Border Width="80" Height="80" CornerRadius="14" Background="#2A2F3D">
-                            <Grid>
-                                <FontIcon Glyph="&#xE8D6;" FontSize="26" Foreground="{StaticResource LucieMuted}" />
-                                <Image x:Name="AlbumArt" Stretch="UniformToFill" />
-                            </Grid>
-                        </Border>
+                        <!-- Pochette ronde, comme un vinyle -->
+                        <Grid Width="80" Height="80">
+                            <Ellipse Fill="#2A2F3D" />
+                            <FontIcon Glyph="&#xE8D6;" FontSize="24" Foreground="{StaticResource LucieMuted}" />
+                            <Ellipse>
+                                <Ellipse.Fill>
+                                    <ImageBrush x:Name="AlbumArt" Stretch="UniformToFill" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+                        </Grid>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                             <TextBlock x:Name="TrackTitle" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource LucieInk}"
@@ -104,17 +130,17 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                            <Button x:Name="PrevButton" Width="44" Height="44" CornerRadius="22" Padding="0"
+                            <Button Width="44" Height="44" CornerRadius="22" Padding="0"
                                     Background="Transparent" BorderThickness="0" Click="Prev_Click"
                                     ToolTipService.ToolTip="Morceau précédent">
                                 <FontIcon Glyph="&#xE892;" FontSize="16" />
                             </Button>
-                            <Button x:Name="PlayButton" Width="44" Height="44" CornerRadius="22" Padding="0"
+                            <Button Width="44" Height="44" CornerRadius="22" Padding="0"
                                     Background="#1FFFFFFF" BorderThickness="0" Click="PlayPause_Click"
                                     ToolTipService.ToolTip="Lecture / pause">
                                 <FontIcon x:Name="PlayIcon" Glyph="&#xE769;" FontSize="16" />
                             </Button>
-                            <Button x:Name="NextButton" Width="44" Height="44" CornerRadius="22" Padding="0"
+                            <Button Width="44" Height="44" CornerRadius="22" Padding="0"
                                     Background="Transparent" BorderThickness="0" Click="Next_Click"
                                     ToolTipService.ToolTip="Morceau suivant">
                                 <FontIcon Glyph="&#xE893;" FontSize="16" />
@@ -124,26 +150,9 @@
                 </Grid>
             </Border>
 
-            <!-- Badge « c'est fait » -->
-            <Grid x:Name="Badge" Width="22" Height="22" HorizontalAlignment="Right" VerticalAlignment="Top"
-                  Margin="0,-8,-8,0" Visibility="Collapsed" IsHitTestVisible="False">
-                <Ellipse Fill="{StaticResource LucieAccent}" />
-                <FontIcon Glyph="&#xE73E;" FontSize="11" Foreground="#16181F" />
-            </Grid>
-
-            <!-- Z du sommeil -->
-            <Canvas x:Name="Zs" Width="40" Height="40" HorizontalAlignment="Right" VerticalAlignment="Top"
-                    Margin="0,-22,-20,0" Visibility="Collapsed" IsHitTestVisible="False">
-                <TextBlock x:Name="Z1" Text="z" FontSize="11" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="10" Canvas.Top="20">
-                    <TextBlock.RenderTransform><CompositeTransform x:Name="Z1T" /></TextBlock.RenderTransform>
-                </TextBlock>
-                <TextBlock x:Name="Z2" Text="z" FontSize="14" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="18" Canvas.Top="12">
-                    <TextBlock.RenderTransform><CompositeTransform x:Name="Z2T" /></TextBlock.RenderTransform>
-                </TextBlock>
-                <TextBlock x:Name="Z3" Text="Z" FontSize="17" FontWeight="SemiBold" Foreground="#C9D2E6" Opacity="0" Canvas.Left="26" Canvas.Top="4">
-                    <TextBlock.RenderTransform><CompositeTransform x:Name="Z3T" /></TextBlock.RenderTransform>
-                </TextBlock>
-            </Canvas>
+            <!-- Contour coloré (écoute, commande réussie, souris proche) -->
+            <Border x:Name="Ring" CornerRadius="32" BorderThickness="2" BorderBrush="{StaticResource LucieAccent}"
+                    Opacity="0" IsHitTestVisible="False" />
         </Grid>
     </Grid>
 </Window>

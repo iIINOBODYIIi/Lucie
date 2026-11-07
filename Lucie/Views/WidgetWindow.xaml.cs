@@ -1,7 +1,9 @@
 using System.Numerics;
 using Lucie.Models;
 using Lucie.Native;
+using Lucie.Services;
 using Microsoft.UI;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -13,25 +15,29 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Storage.Streams;
+using WinRT;
 using WinRT.Interop;
 
 namespace Lucie.Views;
 
 /// <summary>
-/// Le widget flottant : toujours au premier plan, sans bordure, transparent autour.
+/// Le widget flottant : une gélule en verre dépoli, toujours au premier plan.
+/// La fenêtre est découpée exactement à la forme du widget (bouts entièrement ronds).
 /// </summary>
 public sealed partial class WidgetWindow : Window
 {
-    private const double EdgeMargin = 24;      // marge transparente autour du widget (DIP)
-    private const double ExpandedWidth = 500;
+    private const double ExpandedWidth = 520;
     private const double ExpandedHeight = 112;
+    private static readonly TimeSpan ListenWatchdog = TimeSpan.FromSeconds(15);
 
     private readonly IntPtr _hwnd;
     private readonly DispatcherQueue _dispatcher;
     private readonly DispatcherTimer _tick = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private readonly DispatcherTimer _collapseTimer = new() { Interval = TimeSpan.FromSeconds(6) };
-    private readonly SolidColorBrush _idleBorder = new(ColorHelper.FromArgb(0x24, 0xFF, 0xFF, 0xFF));
+    private readonly HotkeyService _hotkeys;
 
+    private DesktopAcrylicController? _acrylic;
+    private SystemBackdropConfiguration? _backdropConfig;
     private Storyboard? _hostStory;
     private IRandomAccessStreamReference? _shownThumbnail;
 
@@ -41,7 +47,14 @@ public sealed partial class WidgetWindow : Window
     private bool _sleeping;
     private bool _pointerInside;
     private DateTime _doneUntil;
+    private DateTime _listenStarted;
     private FaceMood _appliedMood = FaceMood.Idle;
+
+    // Déplacement en restant appuyé
+    private bool _pressed;
+    private bool _dragging;
+    private Win32.POINT _dragStartCursor;
+    private PointInt32 _dragStartWindow;
 
     public WidgetWindow()
     {
@@ -52,12 +65,28 @@ public sealed partial class WidgetWindow : Window
         _dispatcher = DispatcherQueue.GetForCurrentThread();
 
         SetupChrome();
+        SetupBackdrop();
         SetupTransitions();
+
+        // L'éclat « c'est fait » ne doit pas bloquer le contour une fois terminé.
+        var doneStory = (Storyboard)Root.Resources["DoneStory"];
+        doneStory.Completed += (_, _) => doneStory.Stop();
+
+        _hotkeys = new HotkeyService(_hwnd);
+        _hotkeys.Pressed += () => _dispatcher.TryEnqueue(ToggleListen);
+
         ApplySettings();
 
-        // Interactions souris
+        // Souris : rester appuyé + bouger = déplacer ; simple clic = parler à Lucie ; clic droit = menu.
         PillHost.PointerPressed += OnPointerPressed;
+        PillHost.PointerMoved += OnPointerMoved;
+        PillHost.PointerReleased += OnPointerReleased;
+        PillHost.PointerCaptureLost += OnPointerCaptureLost;
         PillHost.RightTapped += (_, e) => { ShowMenu(); e.Handled = true; };
+
+        // La forme de la fenêtre suit la taille du widget.
+        Root.SizeChanged += (_, _) => UpdateRegion();
+        PillHost.SizeChanged += (_, _) => UpdateRegion();
 
         // Voix
         App.Speech.WakeDetected += () => _dispatcher.TryEnqueue(() =>
@@ -72,6 +101,7 @@ public sealed partial class WidgetWindow : Window
             ToolTipService.SetToolTip(PillHost, message + " — clic droit › Paramètres");
             if (_listening) SetListening(false);
         });
+        App.Speech.Ready += () => _dispatcher.TryEnqueue(() => ToolTipService.SetToolTip(PillHost, null));
 
         // Musique
         App.Media.Changed += () => _dispatcher.TryEnqueue(UpdatePlayer);
@@ -92,15 +122,20 @@ public sealed partial class WidgetWindow : Window
 
         _tick.Tick += OnTick;
         _tick.Start();
-        Closed += (_, _) => _tick.Stop();
+
+        Closed += (_, _) =>
+        {
+            _tick.Stop();
+            _hotkeys.Dispose();
+            _acrylic?.Dispose();
+            _acrylic = null;
+        };
     }
 
     // ───────────────────────── Fenêtre ─────────────────────────
 
     private void SetupChrome()
     {
-        SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
-
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {
             presenter.SetBorderAndTitleBar(false, false);
@@ -114,13 +149,29 @@ public sealed partial class WidgetWindow : Window
         Win32.StripFrame(_hwnd);
     }
 
+    /// <summary>Verre dépoli (acrylique) qui reste actif même quand Lucie n'a pas le focus.</summary>
+    private void SetupBackdrop()
+    {
+        if (!DesktopAcrylicController.IsSupported()) return;
+
+        _backdropConfig = new SystemBackdropConfiguration { IsInputActive = true, Theme = SystemBackdropTheme.Dark };
+        _acrylic = new DesktopAcrylicController();
+        _acrylic.AddSystemBackdropTarget(this.As<Microsoft.UI.Composition.ICompositionSupportsSystemBackdrop>());
+        _acrylic.SetSystemBackdropConfiguration(_backdropConfig);
+
+        Activated += (_, _) =>
+        {
+            if (_backdropConfig is not null) _backdropConfig.IsInputActive = true;
+        };
+    }
+
     private void SetupTransitions()
     {
         Player.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(180) };
-        PillHost.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(400) };
-        PillHost.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(220) };
-        PillHost.SizeChanged += (_, _) =>
-            PillHost.CenterPoint = new Vector3((float)(PillHost.ActualWidth / 2), (float)(PillHost.ActualHeight / 2), 0);
+        PillHost.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(500) };
+        Face.ScaleTransition = new Vector3Transition { Duration = TimeSpan.FromMilliseconds(220) };
+        Face.SizeChanged += (_, _) =>
+            Face.CenterPoint = new Vector3((float)(Face.ActualWidth / 2), (float)(Face.ActualHeight / 2), 0);
     }
 
     private double SizeFactor => App.Settings.Current.Size switch
@@ -133,20 +184,29 @@ public sealed partial class WidgetWindow : Window
     private (double W, double H) CompactSize()
     {
         double k = SizeFactor;
-        return ((_listening ? 124 : 96) * k, 64 * k);
+        double w = _listening ? 132 : _appliedMood == FaceMood.Sleep ? 124 : 104;
+        return (w * k, 64 * k);
     }
 
     private void ApplySettings()
     {
         var s = App.Settings.Current;
-        double k = SizeFactor;
 
-        // Transparence du fond du widget
-        byte alpha = (byte)Math.Clamp(255 * (1 - s.WidgetTransparency / 100.0), 25, 255);
-        Pill.Background = new SolidColorBrush(ColorHelper.FromArgb(alpha, 0x1E, 0x21, 0x2B));
-
-        Pill.CornerRadius = new CornerRadius(_expanded ? 28 : 22 * k);
-        Ring.CornerRadius = Pill.CornerRadius;
+        // Transparence du verre
+        double t = Math.Clamp(s.WidgetTransparency / 100.0, 0, 0.9);
+        var tint = ColorHelper.FromArgb(0xFF, 0x1E, 0x21, 0x2B);
+        if (_acrylic is not null)
+        {
+            _acrylic.TintColor = tint;
+            _acrylic.TintOpacity = (float)Math.Clamp(0.85 - t * 0.8, 0.1, 0.95);
+            _acrylic.LuminosityOpacity = (float)Math.Clamp(0.95 - t * 0.6, 0.35, 1);
+            _acrylic.FallbackColor = tint;
+            Pill.Background = new SolidColorBrush(Colors.Transparent);
+        }
+        else
+        {
+            Pill.Background = new SolidColorBrush(ColorHelper.FromArgb((byte)(255 * (1 - t * 0.5)), 0x1E, 0x21, 0x2B));
+        }
 
         // Le widget « s'accroche » au bord choisi : il grandit vers l'intérieur de l'écran.
         if (s.Position == WidgetPosition.Custom)
@@ -164,9 +224,12 @@ public sealed partial class WidgetWindow : Window
         ApplyLayout();
         var (w, h) = _expanded ? (ExpandedWidth, ExpandedHeight) : CompactSize();
         _hostStory?.Stop();
+        _hostStory = null;
         PillHost.Width = w;
         PillHost.Height = h;
         PlaceWindow(w, h);
+
+        _hotkeys.Register(s.TalkHotkey);
     }
 
     private void ApplyLayout()
@@ -177,17 +240,20 @@ public sealed partial class WidgetWindow : Window
             Face.Width = 64; Face.Height = 46;
             Grid.SetColumnSpan(LeftStack, 1);
             LeftStack.HorizontalAlignment = HorizontalAlignment.Left;
-            Pill.CornerRadius = new CornerRadius(28);
+            PillContent.Padding = new Thickness(22, 0, 18, 0);
+            Pill.CornerRadius = new CornerRadius(ExpandedHeight / 2);
         }
         else
         {
             Face.Width = 56 * k; Face.Height = 40 * k;
             Grid.SetColumnSpan(LeftStack, 2);
             LeftStack.HorizontalAlignment = HorizontalAlignment.Center;
-            Pill.CornerRadius = new CornerRadius(22 * k);
+            PillContent.Padding = new Thickness(16 * k, 0, 16 * k, 0);
+            Pill.CornerRadius = new CornerRadius(32 * k);
         }
         Ring.CornerRadius = Pill.CornerRadius;
         Bars.Visibility = _listening && !_expanded ? Visibility.Visible : Visibility.Collapsed;
+        Zs.Visibility = _appliedMood == FaceMood.Sleep && !_expanded && !_listening ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>Place et dimensionne la fenêtre selon la position choisie (pixels physiques).</summary>
@@ -195,8 +261,9 @@ public sealed partial class WidgetWindow : Window
     {
         var s = App.Settings.Current;
         double scale = Win32.ScaleFor(_hwnd);
-        int w = (int)Math.Ceiling((widthDip + 2 * EdgeMargin) * scale);
-        int h = (int)Math.Ceiling((heightDip + 2 * EdgeMargin) * scale);
+        int w = (int)Math.Ceiling(widthDip * scale);
+        int h = (int)Math.Ceiling(heightDip * scale);
+        const int edge = 16; // petit espace avec le bord de l'écran
 
         int x, y;
         RectInt32 area;
@@ -211,21 +278,39 @@ public sealed partial class WidgetWindow : Window
         {
             area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary).WorkArea;
             int col = (int)s.Position % 3, row = (int)s.Position / 3;
-            x = col switch { 0 => area.X, 1 => area.X + (area.Width - w) / 2, _ => area.X + area.Width - w };
-            y = row switch { 0 => area.Y, 1 => area.Y + (area.Height - h) / 2, _ => area.Y + area.Height - h };
+            x = col switch { 0 => area.X + edge, 1 => area.X + (area.Width - w) / 2, _ => area.X + area.Width - w - edge };
+            y = row switch { 0 => area.Y + edge, 1 => area.Y + (area.Height - h) / 2, _ => area.Y + area.Height - h - edge };
         }
 
         x = Math.Max(area.X, Math.Min(x, area.X + area.Width - w));
         y = Math.Max(area.Y, Math.Min(y, area.Y + area.Height - h));
         AppWindow.MoveAndResize(new RectInt32(x, y, w, h));
+        UpdateRegion();
+    }
+
+    /// <summary>Découpe la fenêtre à la forme exacte de la gélule.</summary>
+    private void UpdateRegion()
+    {
+        double w = PillHost.ActualWidth > 0 ? PillHost.ActualWidth : PillHost.Width;
+        double h = PillHost.ActualHeight > 0 ? PillHost.ActualHeight : PillHost.Height;
+        if (double.IsNaN(w) || double.IsNaN(h) || w <= 0 || h <= 0) return;
+
+        double scale = Win32.ScaleFor(_hwnd);
+        var bounds = PillHost.ActualWidth > 0
+            ? PillHost.TransformToVisual(Root).TransformBounds(new Rect(0, 0, w, h))
+            : new Rect(0, 0, w, h);
+
+        Win32.SetCapsuleRegion(_hwnd,
+            (int)Math.Round(bounds.X * scale), (int)Math.Round(bounds.Y * scale),
+            (int)Math.Round(bounds.Width * scale), (int)Math.Round(bounds.Height * scale));
     }
 
     private void AnimateHost(double w, double h, Action? done = null)
     {
         _hostStory?.Stop();
 
-        double fromW = double.IsNaN(PillHost.Width) ? w : PillHost.ActualWidth;
-        double fromH = double.IsNaN(PillHost.Height) ? h : PillHost.ActualHeight;
+        double fromW = PillHost.ActualWidth > 0 ? PillHost.ActualWidth : w;
+        double fromH = PillHost.ActualHeight > 0 ? PillHost.ActualHeight : h;
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var duration = new Duration(TimeSpan.FromMilliseconds(280));
 
@@ -247,6 +332,7 @@ public sealed partial class WidgetWindow : Window
             story.Stop();
             _hostStory = null;
             done?.Invoke();
+            UpdateRegion();
         };
         _hostStory = story;
         story.Begin();
@@ -316,7 +402,7 @@ public sealed partial class WidgetWindow : Window
 
         if (thumbnail is null)
         {
-            AlbumArt.Source = null;
+            AlbumArt.ImageSource = null;
             return;
         }
         try
@@ -324,11 +410,11 @@ public sealed partial class WidgetWindow : Window
             using var stream = await thumbnail.OpenReadAsync();
             var bitmap = new BitmapImage();
             await bitmap.SetSourceAsync(stream);
-            if (_shownThumbnail == thumbnail) AlbumArt.Source = bitmap;
+            if (_shownThumbnail == thumbnail) AlbumArt.ImageSource = bitmap;
         }
         catch
         {
-            AlbumArt.Source = null;
+            AlbumArt.ImageSource = null;
         }
     }
 
@@ -338,10 +424,24 @@ public sealed partial class WidgetWindow : Window
 
     // ───────────────────────── Voix ─────────────────────────
 
+    private void ToggleListen()
+    {
+        if (_listening)
+        {
+            App.Speech.Cancel();
+            SetListening(false);
+        }
+        else
+        {
+            App.Speech.ListenNow();
+        }
+    }
+
     private void SetListening(bool on)
     {
         if (_listening == on) return;
         _listening = on;
+        if (on) _listenStarted = DateTime.Now;
 
         var story = (Storyboard)Root.Resources["ListenStory"];
         if (on) story.Begin();
@@ -359,44 +459,41 @@ public sealed partial class WidgetWindow : Window
     {
         SetListening(false);
 
-        var command = App.Interpreter.Match(heard, App.Settings.Current.Commands)
-                      ?? App.Interpreter.FallbackOpen(heard);
-
-        if (command is null)
+        var intent = App.Interpreter.Interpret(heard, App.Settings.Current);
+        if (intent is null)
         {
             App.Sounds.PlayError();
             return;
         }
 
         bool ok;
-        if (command.Action == CommandAction.Screenshot)
+        if (intent.App is AppEntry app)
+        {
+            ok = await App.Actions.OpenAppAsync(app);
+        }
+        else if (intent.Command!.Action == CommandAction.Screenshot)
         {
             // On se cache le temps de la capture pour ne pas apparaître dessus.
             AppWindow.Hide();
             await Task.Delay(180);
-            ok = await App.Actions.ExecuteAsync(command);
+            ok = await App.Actions.ExecuteAsync(intent.Command);
             AppWindow.Show(false);
         }
         else
         {
-            ok = await App.Actions.ExecuteAsync(command);
+            ok = await App.Actions.ExecuteAsync(intent.Command);
         }
 
         if (ok)
         {
             App.Sounds.PlayDone();
-            ShowDone();
+            _doneUntil = DateTime.Now.AddSeconds(1.6);
+            ((Storyboard)Root.Resources["DoneStory"]).Begin();
         }
         else
         {
             App.Sounds.PlayError();
         }
-    }
-
-    private void ShowDone()
-    {
-        _doneUntil = DateTime.Now.AddSeconds(1.6);
-        Badge.Visibility = Visibility.Visible;
     }
 
     // ───────────────────────── Vie du widget ─────────────────────────
@@ -405,7 +502,7 @@ public sealed partial class WidgetWindow : Window
     {
         var s = App.Settings.Current;
 
-        if (Win32.GetCursorPos(out var cursor) && Face.ActualWidth > 0)
+        if (!_dragging && Win32.GetCursorPos(out var cursor) && Face.ActualWidth > 0 && PillHost.ActualWidth > 0)
         {
             double scale = Win32.ScaleFor(_hwnd);
             var pos = AppWindow.Position;
@@ -440,8 +537,12 @@ public sealed partial class WidgetWindow : Window
 
         _sleeping = Win32.GetIdleTime().TotalMinutes >= Math.Max(1, s.SleepMinutes);
 
-        if (Badge.Visibility == Visibility.Visible && DateTime.Now >= _doneUntil)
-            Badge.Visibility = Visibility.Collapsed;
+        // Sécurité : ne jamais rester bloquée en mode écoute.
+        if (_listening && DateTime.Now - _listenStarted > ListenWatchdog)
+        {
+            App.Speech.Cancel();
+            SetListening(false);
+        }
 
         var mood = ResolveMood();
         if (mood != _appliedMood) ApplyMood(mood);
@@ -460,61 +561,89 @@ public sealed partial class WidgetWindow : Window
         if (DateTime.Now < _doneUntil) return FaceMood.Done;
         if (App.Media.IsPlaying) return FaceMood.Music;
         if (_sleeping) return FaceMood.Sleep;
-        if (_near) return FaceMood.Wow;
+        if (_near || _dragging) return FaceMood.Wow;
         return FaceMood.Idle;
     }
 
     private void ApplyMood(FaceMood mood)
     {
+        bool sleepChanged = (mood == FaceMood.Sleep) != (_appliedMood == FaceMood.Sleep);
         _appliedMood = mood;
         Face.Mood = mood;
 
         var sleep = (Storyboard)Root.Resources["SleepStory"];
         if (mood == FaceMood.Sleep)
         {
-            Zs.Visibility = Visibility.Visible;
             sleep.Begin();
-            PillHost.Opacity = 0.75;
+            PillHost.Opacity = 0.8;
         }
         else
         {
             sleep.Stop();
-            Zs.Visibility = Visibility.Collapsed;
             PillHost.Opacity = 1;
         }
 
         bool wow = mood == FaceMood.Wow;
-        PillHost.Scale = wow ? new Vector3(1.07f, 1.07f, 1f) : Vector3.One;
-        Pill.BorderBrush = wow ? App.Accent : _idleBorder;
+        Face.Scale = wow ? new Vector3(1.1f, 1.1f, 1f) : Vector3.One;
+        if (!_listening) Ring.Opacity = wow ? 0.55 : 0;
+
+        ApplyLayout();
+        if (sleepChanged) ResizeCompact();
     }
 
     // ───────────────────────── Souris ─────────────────────────
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        var point = e.GetCurrentPoint(PillHost);
-        if (!point.Properties.IsLeftButtonPressed) return;
+        if (!e.GetCurrentPoint(PillHost).Properties.IsLeftButtonPressed) return;
 
-        // Glisser = déplacer le widget. Simple clic = parler à Lucie.
-        var before = AppWindow.Position;
-        Win32.ReleaseCapture();
-        Win32.SendMessage(_hwnd, Win32.WM_NCLBUTTONDOWN, (IntPtr)Win32.HTCAPTION, IntPtr.Zero);
-        var after = AppWindow.Position;
-
-        if (Math.Abs(after.X - before.X) > 4 || Math.Abs(after.Y - before.Y) > 4)
-        {
-            var s = App.Settings.Current;
-            var size = AppWindow.Size;
-            s.Position = WidgetPosition.Custom;
-            s.CustomX = after.X + size.Width / 2.0;
-            s.CustomY = after.Y + size.Height / 2.0;
-            App.Settings.Save();
-        }
-        else
-        {
-            App.Speech.ListenNow();
-        }
+        _pressed = true;
+        _dragging = false;
+        Win32.GetCursorPos(out _dragStartCursor);
+        _dragStartWindow = AppWindow.Position;
+        PillHost.CapturePointer(e.Pointer);
         e.Handled = true;
+    }
+
+    private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_pressed || !Win32.GetCursorPos(out var now)) return;
+
+        int dx = now.X - _dragStartCursor.X, dy = now.Y - _dragStartCursor.Y;
+        if (!_dragging && Math.Abs(dx) + Math.Abs(dy) > 6) _dragging = true;
+        if (_dragging) AppWindow.Move(new PointInt32(_dragStartWindow.X + dx, _dragStartWindow.Y + dy));
+        e.Handled = true;
+    }
+
+    private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_pressed) return;
+        _pressed = false;
+        PillHost.ReleasePointerCapture(e.Pointer);
+
+        if (_dragging) SaveDraggedPosition();
+        else ToggleListen();   // simple clic : parler à Lucie
+
+        _dragging = false;
+        e.Handled = true;
+    }
+
+    private void OnPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_pressed && _dragging) SaveDraggedPosition();
+        _pressed = false;
+        _dragging = false;
+    }
+
+    private void SaveDraggedPosition()
+    {
+        var s = App.Settings.Current;
+        var pos = AppWindow.Position;
+        var size = AppWindow.Size;
+        s.Position = WidgetPosition.Custom;
+        s.CustomX = pos.X + size.Width / 2.0;
+        s.CustomY = pos.Y + size.Height / 2.0;
+        App.Settings.Save();
     }
 
     private void ShowMenu()

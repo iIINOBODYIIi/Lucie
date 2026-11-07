@@ -1,42 +1,58 @@
 using System.Text.Json;
+using Lucie.Models;
 using NAudio.Wave;
 using Vosk;
 
 namespace Lucie.Services;
 
 /// <summary>
-/// Écoute le micro en continu, hors ligne (Vosk).
-/// 1. Mode veille : ne cherche que « Salut &lt;nom&gt; » (grammaire très réduite, léger).
-/// 2. Mode écoute : transcrit la phrase suivante et la renvoie comme commande.
+/// Reconnaissance vocale hors ligne (Vosk).
+///
+/// Mode « toujours à l'écoute » : le micro tourne, mais Lucie ne réagit que si elle
+/// entend son nom (« Salut Lucie »). La commande peut suivre dans la même phrase
+/// (« Salut Lucie, ouvre Discord ») ou juste après le bip.
+///
+/// Mode « à l'activation » : le micro est coupé. Il ne s'allume qu'après un clic
+/// sur le widget ou le raccourci clavier, le temps d'une commande.
+///
 /// Les événements arrivent sur le fil audio : à renvoyer vers l'interface.
 /// </summary>
 public sealed class SpeechService : IDisposable
 {
     private const float Rate = 16000f;
     private static readonly TimeSpan ListenWindow = TimeSpan.FromSeconds(7);
+    private static readonly HashSet<string> Greetings = new() { "salut", "hey", "he", "ok", "okay", "coucou", "dis", "bonjour", "eh", "allo" };
 
     private readonly SettingsService _settings;
     private readonly object _lock = new();
 
     private Model? _model;
-    private VoskRecognizer? _wake;
-    private VoskRecognizer? _command;
+    private VoskRecognizer? _recognizer;
     private WaveInEvent? _wave;
-    private bool _listening;
+    private volatile bool _recording;
+    private bool _awake;
+    private bool _alwaysListen;
     private DateTime _deadline;
-    private string _name = "lucie";
+    private string[] _name = { "lucie" };
 
     public event Action? WakeDetected;
     public event Action<string>? CommandHeard;
     public event Action? ListenTimedOut;
     public event Action<double>? LevelChanged;
     public event Action<string>? Error;
+    public event Action? Ready;
+    /// <summary>Phrase entendue (pour l'afficher dans les paramètres).</summary>
+    public event Action<string>? Heard;
 
     public bool ModelAvailable => _model is not null;
+    public bool IsAwake { get { lock (_lock) return _awake; } }
+    public string LastHeard { get; private set; } = "";
 
-    /// <summary>Dossier où placer le modèle français (voir README).</summary>
+    /// <summary>Dossier où placer le modèle français.</summary>
     public static string PreferredModelDir { get; } =
         Path.Combine(SettingsService.DataDir, "VoiceModel", "vosk-model-fr");
+
+    public SpeechService(SettingsService settings) => _settings = settings;
 
     private static string? FindModelDir()
     {
@@ -48,9 +64,7 @@ public sealed class SpeechService : IDisposable
         return candidates.FirstOrDefault(d => Directory.Exists(Path.Combine(d, "am")) || File.Exists(Path.Combine(d, "conf", "model.conf")));
     }
 
-    public SpeechService(SettingsService settings) => _settings = settings;
-
-    /// <summary>(Re)démarre le micro et la reconnaissance — à rappeler si le micro ou le nom change.</summary>
+    /// <summary>(Re)démarre tout — à rappeler si le micro, le nom ou le mode d'écoute change.</summary>
     public void Start()
     {
         StopAudio();
@@ -76,7 +90,16 @@ public sealed class SpeechService : IDisposable
             }
         }
 
-        BuildRecognizers();
+        lock (_lock)
+        {
+            _recognizer?.Dispose();
+            _recognizer = _model is null ? null : new VoskRecognizer(_model, Rate);
+            _awake = false;
+            _alwaysListen = _settings.Current.ListenMode == ListenMode.Always;
+
+            var name = CommandInterpreter.Normalize(_settings.Current.AssistantName);
+            _name = (name.Length == 0 ? "lucie" : name).Split(' ');
+        }
 
         try
         {
@@ -87,53 +110,50 @@ public sealed class SpeechService : IDisposable
                 BufferMilliseconds = 100
             };
             _wave.DataAvailable += OnAudio;
-            _wave.StartRecording();
+            _wave.RecordingStopped += (_, e) =>
+            {
+                _recording = false;
+                if (e.Exception is not null) Error?.Invoke("Micro coupé : " + e.Exception.Message);
+            };
         }
         catch (Exception ex)
         {
-            _wave?.Dispose();
             _wave = null;
             Error?.Invoke("Micro indisponible : " + ex.Message);
+            return;
         }
+
+        if (_alwaysListen) StartAudio();
+        if (_model is not null) Ready?.Invoke();
     }
 
-    /// <summary>Passe directement en écoute (clic sur le widget).</summary>
+    /// <summary>Écoute tout de suite une commande (clic sur le widget ou raccourci).</summary>
     public void ListenNow()
     {
         lock (_lock)
         {
-            if (_command is null)
+            if (_recognizer is null)
             {
                 Error?.Invoke("Modèle vocal introuvable");
                 return;
             }
-            _command.Reset();
-            _listening = true;
+            _recognizer.Reset();
+            _awake = true;
             _deadline = DateTime.UtcNow + ListenWindow;
         }
+        StartAudio();
         WakeDetected?.Invoke();
     }
 
-    private void BuildRecognizers()
+    /// <summary>Arrête d'écouter la commande en cours.</summary>
+    public void Cancel()
     {
         lock (_lock)
         {
-            _wake?.Dispose();
-            _command?.Dispose();
-            _wake = _command = null;
-            _listening = false;
-            if (_model is null) return;
-
-            _name = CommandInterpreter.Normalize(_settings.Current.AssistantName);
-            if (_name.Length == 0) _name = "lucie";
-
-            var grammar = JsonSerializer.Serialize(new[]
-            {
-                $"salut {_name}", $"hey {_name}", $"ok {_name}", $"coucou {_name}", _name, "[unk]"
-            });
-            _wake = new VoskRecognizer(_model, Rate, grammar);
-            _command = new VoskRecognizer(_model, Rate);
+            _awake = false;
+            _recognizer?.Reset();
         }
+        if (!_alwaysListen) StopAudioSoon();
     }
 
     private void OnAudio(object? sender, WaveInEventArgs e)
@@ -141,58 +161,151 @@ public sealed class SpeechService : IDisposable
         LevelChanged?.Invoke(ComputeLevel(e.Buffer, e.BytesRecorded));
 
         Action? after = null;
+        bool finished = false;
+
         lock (_lock)
         {
-            if (_wake is null || _command is null) return;
+            if (_recognizer is null) return;
+            var now = DateTime.UtcNow;
 
-            if (!_listening)
+            if (_recognizer.AcceptWaveform(e.Buffer, e.BytesRecorded))
             {
-                bool final = _wake.AcceptWaveform(e.Buffer, e.BytesRecorded);
-                string text = Field(final ? _wake.Result() : _wake.PartialResult(), final ? "text" : "partial");
-                if (ContainsName(text))
+                var words = Words(Field(_recognizer.Result(), "text"));
+                int wake = FindName(words);
+
+                if (_awake)
                 {
-                    _wake.Reset();
-                    _command.Reset();
-                    _listening = true;
-                    _deadline = DateTime.UtcNow + ListenWindow;
-                    after = () => WakeDetected?.Invoke();
+                    var command = AfterName(words, wake);
+                    if (command.Length > 0)
+                    {
+                        _awake = false;
+                        finished = true;
+                        after = () => { Report(command); CommandHeard?.Invoke(command); };
+                    }
+                    else
+                    {
+                        _deadline = now + ListenWindow; // il a juste dit « Salut Lucie » : on attend la suite
+                    }
+                }
+                else if (_alwaysListen && wake >= 0)
+                {
+                    var command = AfterName(words, wake);
+                    if (command.Length > 0)
+                    {
+                        // « Salut Lucie, ouvre Discord » d'une traite
+                        finished = true;
+                        after = () => { WakeDetected?.Invoke(); Report(command); CommandHeard?.Invoke(command); };
+                    }
+                    else
+                    {
+                        _awake = true;
+                        _deadline = now + ListenWindow;
+                        after = () => WakeDetected?.Invoke();
+                    }
                 }
             }
             else
             {
-                if (_command.AcceptWaveform(e.Buffer, e.BytesRecorded))
+                var partial = Words(Field(_recognizer.PartialResult(), "partial"));
+                if (!_awake && _alwaysListen && FindName(partial) >= 0)
                 {
-                    string text = Field(_command.Result(), "text");
-                    if (!string.IsNullOrWhiteSpace(text))
-                    {
-                        _listening = false;
-                        _wake.Reset();
-                        after = () => CommandHeard?.Invoke(text);
-                    }
+                    // Réaction immédiate dès qu'on entend son nom
+                    _awake = true;
+                    _deadline = now + ListenWindow + TimeSpan.FromSeconds(1);
+                    after = () => WakeDetected?.Invoke();
                 }
-                else if (Field(_command.PartialResult(), "partial").Length > 0)
+                else if (_awake && partial.Length > 0)
                 {
                     // Tu es en train de parler : on te laisse finir.
-                    var min = DateTime.UtcNow + TimeSpan.FromSeconds(2);
+                    var min = now + TimeSpan.FromSeconds(2);
                     if (_deadline < min) _deadline = min;
                 }
+            }
 
-                if (_listening && DateTime.UtcNow > _deadline)
-                {
-                    _listening = false;
-                    string text = Field(_command.FinalResult(), "text");
-                    _wake.Reset();
-                    after = string.IsNullOrWhiteSpace(text)
-                        ? () => ListenTimedOut?.Invoke()
-                        : () => CommandHeard?.Invoke(text);
-                }
+            if (_awake && now > _deadline)
+            {
+                _awake = false;
+                finished = true;
+                var words = Words(Field(_recognizer.FinalResult(), "text"));
+                var command = AfterName(words, FindName(words));
+                after = command.Length > 0
+                    ? () => { Report(command); CommandHeard?.Invoke(command); }
+                    : () => ListenTimedOut?.Invoke();
             }
         }
+
         after?.Invoke();
+        if (finished && !_alwaysListen) StopAudioSoon();
     }
 
-    private bool ContainsName(string text) =>
-        text.Length > 0 && $" {text} ".Contains($" {_name} ", StringComparison.Ordinal);
+    private void Report(string text)
+    {
+        LastHeard = text;
+        Heard?.Invoke(text);
+    }
+
+    // ───── Repérer son nom ─────
+
+    private int FindName(string[] words)
+    {
+        for (int i = 0; i + _name.Length <= words.Length; i++)
+        {
+            bool exact = true;
+            for (int j = 0; j < _name.Length; j++)
+                if (words[i + j] != _name[j]) { exact = false; break; }
+            if (exact) return i;
+
+            // Nom presque reconnu (« lucy », « luci »…) : accepté s'il suit « salut », « hey »…
+            if (_name.Length == 1 && _name[0].Length >= 4 && i > 0 && Greetings.Contains(words[i - 1])
+                && CommandInterpreter.Levenshtein(words[i], _name[0]) <= 1)
+                return i;
+        }
+        return -1;
+    }
+
+    private string AfterName(string[] words, int nameIndex)
+    {
+        var rest = nameIndex >= 0 ? words.Skip(nameIndex + _name.Length) : words;
+        return string.Join(' ', rest.SkipWhile(Greetings.Contains));
+    }
+
+    private static string[] Words(string text) =>
+        CommandInterpreter.Normalize(text).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+    // ───── Micro ─────
+
+    private void StartAudio()
+    {
+        if (_wave is null || _recording) return;
+        try
+        {
+            _wave.StartRecording();
+            _recording = true;
+        }
+        catch (Exception ex)
+        {
+            Error?.Invoke("Micro indisponible : " + ex.Message);
+        }
+    }
+
+    private void StopAudioSoon()
+    {
+        var wave = _wave;
+        Task.Run(() =>
+        {
+            try { wave?.StopRecording(); } catch { }
+        });
+    }
+
+    private void StopAudio()
+    {
+        if (_wave is null) return;
+        _wave.DataAvailable -= OnAudio;
+        try { _wave.StopRecording(); } catch { }
+        _wave.Dispose();
+        _wave = null;
+        _recording = false;
+    }
 
     private static double ComputeLevel(byte[] buffer, int bytes)
     {
@@ -221,23 +334,13 @@ public sealed class SpeechService : IDisposable
         }
     }
 
-    private void StopAudio()
-    {
-        if (_wave is null) return;
-        _wave.DataAvailable -= OnAudio;
-        try { _wave.StopRecording(); } catch { }
-        _wave.Dispose();
-        _wave = null;
-    }
-
     public void Dispose()
     {
         StopAudio();
         lock (_lock)
         {
-            _wake?.Dispose();
-            _command?.Dispose();
-            _wake = _command = null;
+            _recognizer?.Dispose();
+            _recognizer = null;
         }
         _model?.Dispose();
         _model = null;

@@ -9,8 +9,8 @@ namespace Lucie.Views;
 public enum FaceMood { Idle, Wow, Listening, Done, Music, Sleep }
 
 /// <summary>
-/// Le petit visage de Lucie. Il « vit » tout seul : clignements au hasard,
-/// coups d'œil à gauche et à droite, léger balancement avec la musique.
+/// Le petit visage de Lucie. Il « vit » tout seul : respiration, clignements au hasard,
+/// coups d'œil à gauche et à droite, balancement avec la musique.
 /// </summary>
 public sealed partial class LucieFace : UserControl
 {
@@ -33,9 +33,20 @@ public sealed partial class LucieFace : UserControl
     public LucieFace()
     {
         InitializeComponent();
+
+        // Fondus doux entre les expressions
+        foreach (var layer in Layers)
+            layer.OpacityTransition = new ScalarTransition { Duration = TimeSpan.FromMilliseconds(160) };
+
+        ApplyMood();
         Loaded += (_, _) => CompositionTarget.Rendering += OnFrame;
         Unloaded += (_, _) => CompositionTarget.Rendering -= OnFrame;
     }
+
+    private UIElement[] Layers => new UIElement[]
+    {
+        Blush, Headphones, NormalEyes, RoundEyes, HappyEyes, SleepEyes, MouthSmile, MouthBig, MouthO
+    };
 
     public FaceMood Mood
     {
@@ -53,22 +64,25 @@ public sealed partial class LucieFace : UserControl
 
     private void ApplyMood()
     {
-        static Visibility Show(bool b) => b ? Visibility.Visible : Visibility.Collapsed;
+        static void Fade(UIElement e, bool on) => e.Opacity = on ? 1 : 0;
 
-        NormalEyes.Visibility = Show(_mood == FaceMood.Idle);
-        RoundEyes.Visibility = Show(_mood is FaceMood.Wow or FaceMood.Listening);
-        HappyEyes.Visibility = Show(_mood is FaceMood.Done or FaceMood.Music);
-        ClosedEyes.Visibility = Show(_mood == FaceMood.Sleep);
-        Headphones.Visibility = Show(_mood == FaceMood.Music);
+        Fade(NormalEyes, _mood == FaceMood.Idle);
+        Fade(RoundEyes, _mood is FaceMood.Wow or FaceMood.Listening);
+        Fade(HappyEyes, _mood is FaceMood.Done or FaceMood.Music);
+        Fade(SleepEyes, _mood == FaceMood.Sleep);
+        Fade(Headphones, _mood == FaceMood.Music);
+        Fade(Blush, _mood is FaceMood.Done or FaceMood.Music or FaceMood.Wow);
 
-        MouthSmile.Visibility = Show(_mood is FaceMood.Idle or FaceMood.Music);
-        MouthBig.Visibility = Show(_mood == FaceMood.Done);
-        MouthO.Visibility = Show(_mood is FaceMood.Wow or FaceMood.Listening);
-        MouthFlat.Visibility = Show(_mood == FaceMood.Sleep);
+        Fade(MouthSmile, _mood is FaceMood.Idle or FaceMood.Music);
+        Fade(MouthBig, _mood == FaceMood.Done);
+        Fade(MouthO, _mood is FaceMood.Wow or FaceMood.Listening);
+        // Sommeil : pas de bouche du tout.
 
-        // Bouche en « o » un peu plus petite quand elle écoute.
-        MouthO.Width = _mood == FaceMood.Listening ? 4.0 : 4.8;
-        MouthO.Height = _mood == FaceMood.Listening ? 4.0 : 5.6;
+        // Petite bouche ronde quand elle écoute, plus grande quand elle est épatée.
+        bool small = _mood == FaceMood.Listening;
+        MouthO.Width = small ? 4.2 : 5.2;
+        MouthO.Height = small ? 4.6 : 6;
+        Canvas.SetLeft(MouthO, small ? 25.9 : 25.4);
     }
 
     private void OnFrame(object? sender, object e)
@@ -92,11 +106,11 @@ public sealed partial class LucieFace : UserControl
         }
         else if (_mood is FaceMood.Idle or FaceMood.Listening)
         {
-            // Elle regarde un coup à gauche, un coup à droite, puis revient au centre.
+            // Elle regarde un coup à gauche, un coup à droite, parfois en haut, puis revient au centre.
             if (_lookUntil < 0 && now >= _nextLook)
             {
                 float side = _rng.Next(2) == 0 ? -1f : 1f;
-                _autoTarget = new Vector2(side * (0.6f + (float)_rng.NextDouble() * 0.4f), (float)(_rng.NextDouble() * 0.6 - 0.3));
+                _autoTarget = new Vector2(side * (0.6f + (float)_rng.NextDouble() * 0.4f), (float)(_rng.NextDouble() * 0.7 - 0.45));
                 _lookUntil = now + 0.7 + _rng.NextDouble() * 1.6;
             }
             else if (_lookUntil > 0 && now > _lookUntil)
@@ -115,11 +129,11 @@ public sealed partial class LucieFace : UserControl
         _gaze += (target - _gaze) * (float)Math.Min(1, dt * 9);
 
         NormalEyesShift.X = _gaze.X * 3.0;
-        NormalEyesShift.Y = _gaze.Y * 1.5;
+        NormalEyesShift.Y = _gaze.Y * 1.6;
         RoundEyesShift.X = _gaze.X * 1.2;
         RoundEyesShift.Y = _gaze.Y * 0.8;
-        PupilShift.X = _gaze.X * 2.6;
-        PupilShift.Y = _gaze.Y * 2.2;
+        PupilShift.X = _gaze.X * 2.8;
+        PupilShift.Y = _gaze.Y * 2.4;
     }
 
     private void UpdateBlink(double now)
@@ -134,7 +148,7 @@ public sealed partial class LucieFace : UserControl
 
             if (_blinkStart >= 0)
             {
-                const double duration = 0.15;
+                const double duration = 0.16;
                 double t = now - _blinkStart;
                 if (t < 0)
                 {
@@ -142,12 +156,12 @@ public sealed partial class LucieFace : UserControl
                 }
                 else if (t < duration)
                 {
-                    scale = 1 - 0.88 * Math.Sin(Math.PI * t / duration);
+                    scale = 1 - 0.9 * Math.Sin(Math.PI * t / duration);
                 }
                 else if (_doubleBlink)
                 {
                     _doubleBlink = false;
-                    _blinkStart = now + 0.08;
+                    _blinkStart = now + 0.09;
                 }
                 else
                 {
@@ -169,15 +183,19 @@ public sealed partial class LucieFace : UserControl
         {
             case FaceMood.Music:
                 FaceRootShift.Y = Math.Sin(now * 2 * Math.PI / 1.6) * 0.9;
-                FaceRootRotate.Angle = Math.Sin(now * 2 * Math.PI / 3.2) * 3;
+                FaceRootRotate.Angle = Math.Sin(now * 2 * Math.PI / 3.2) * 4;
+                FaceRootScale.ScaleY = 1;
                 break;
             case FaceMood.Sleep:
-                FaceRootShift.Y = Math.Sin(now * 2 * Math.PI / 4.2) * 0.6;   // respiration lente
-                FaceRootRotate.Angle = 0;
+                FaceRootShift.Y = 0.5 + Math.Sin(now * 2 * Math.PI / 4.4) * 0.6;   // respiration lente
+                FaceRootRotate.Angle = -3;                                       // tête un peu penchée
+                FaceRootScale.ScaleY = 1;
                 break;
             default:
+                // Légère respiration, pour qu'elle ait l'air vivante même immobile
                 FaceRootShift.Y = 0;
                 FaceRootRotate.Angle = 0;
+                FaceRootScale.ScaleY = 1 + Math.Sin(now * 2 * Math.PI / 3.8) * 0.018;
                 break;
         }
     }

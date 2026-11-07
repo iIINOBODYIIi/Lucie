@@ -2,15 +2,36 @@
 
 Un petit widget flottant avec un visage qui vit. Dis « Salut Lucie », elle t'écoute, puis exécute ta commande. Elle répond par des sons doux, pas par une voix.
 
-## Ce qu'elle sait faire (V1)
+## Ce qu'elle sait faire
 
-- **Activation à la voix** : « Salut Lucie » (le nom se change dans les paramètres). La reconnaissance tourne hors ligne avec Vosk : rien ne part sur internet.
-- **Clic sur le widget** : elle t'écoute aussi, sans mot d'activation.
-- **Commandes** : ouvrir une appli ou un lien, taper un raccourci clavier (Discord, Game Bar…), faire une capture d'écran (enregistrée dans `Images\Lucie`), lecture/pause, morceau suivant ou précédent.
-- **« Ouvre Spotify »** sans commande dédiée : elle cherche l'appli dans le menu Démarrer.
-- **Visage vivant** : clignements au hasard, coups d'œil à gauche et à droite. Elle fait « waouh » et suit la souris quand celle-ci entre dans sa zone, met son casque quand de la musique joue, et s'endort (avec les petits Z) quand le PC est inactif.
-- **Mode lecteur** : le widget s'agrandit quand un morceau démarre ou change (titre, artiste, pochette, précédent/pause/suivant), puis se replie au bout de 6 s, sauf si la souris est dessus.
-- **Paramètres** (clic droit sur le widget) : nom, micro, sortie audio, position (9 positions ou glisser-déposer), taille, transparence, sommeil, zone de détection de la souris, fenêtre transparente, couleur d'accent, sons, commandes et raccourcis.
+- **Activation à la voix** : « Salut Lucie » (le nom se change dans les paramètres). Tu peux enchaîner d'une traite : « Salut Lucie, ouvre Discord ». La reconnaissance tourne hors ligne avec Vosk : rien ne part sur internet.
+- **Deux modes d'écoute** : toujours prête (elle réagit à son nom), ou seulement quand tu l'actives (micro coupé le reste du temps).
+- **Clic sur le widget** ou **raccourci clavier** (Ctrl+Alt+L par défaut) : elle t'écoute tout de suite. Refais-le pour annuler.
+- **Applications** : « Ouvre Cider », « Montre-moi Discord »… Si l'appli est déjà ouverte, même cachée, elle est remise au premier plan. Tu ajoutes tes applis (.exe) dans les paramètres.
+- **Musique** : lance la musique, pause, suivante, précédente. **Volume** : monte / baisse / coupe le son.
+- **Raccourcis** : Discord (micro, sourdine), enregistrement d'écran (Game Bar), capture d'écran (Images\Lucie).
+- **Visage vivant** : elle respire, cligne des yeux au hasard et regarde à gauche et à droite. Quand la souris approche, elle fait « waouh » et la suit des yeux. Avec de la musique, elle met son casque, et quand le PC est inactif, elle s'endort avec les petits Z.
+- **Mode lecteur** : quand un morceau démarre ou change, le widget s'étire en gélule avec la pochette ronde, le titre, et précédent/pause/suivant.
+- **Widget** : une gélule en verre dépoli. Pour la déplacer, reste appuyé dessus et bouge la souris.
+
+## Toutes les phrases (par défaut)
+
+| Tu dis… | Lucie… |
+| --- | --- |
+| « Ouvre / lance / montre-moi / affiche *appli* » | ouvre l'appli ou la met devant |
+| « Ouvre le navigateur / internet / google » | ouvre Google |
+| « Lance la musique / mets la musique / reprends la musique / lecture » | lance la lecture |
+| « Mets pause / pause / arrête la musique » | met en pause |
+| « Musique suivante / chanson suivante / suivant » | passe au morceau suivant |
+| « Musique précédente / chanson précédente / précédent » | revient au morceau précédent |
+| « Monte le son / plus fort » — « Baisse le son / moins fort » | règle le volume |
+| « Coupe le son / remets le son » | coupe ou remet le son |
+| « Fais une capture / capture d'écran » | fait une capture d'écran |
+| « Lance l'enregistrement / arrête l'enregistrement » | Win+Alt+R (Game Bar) |
+| « Coupe mon micro / active mon micro » | Ctrl+Maj+M (Discord) |
+| « Mets-moi en sourdine / enlève la sourdine » | Ctrl+Maj+D (Discord) |
+
+Tout se modifie dans **Paramètres › Commandes et raccourcis**. Sépare plusieurs façons de dire la même chose par `/`. La **dernière phrase entendue** y est affichée : pratique pour voir comment Lucie comprend un mot (par exemple « Cider » entendu « cidre »), puis l'ajouter comme variante.
 
 ## Installation
 
@@ -20,6 +41,10 @@ Un petit widget flottant avec un visage qui vit. Dis « Salut Lucie », elle t'�
 - **Visual Studio 2022**, avec la charge de travail **« Développement .NET Desktop »**. Dans les détails, coche **« Windows App SDK C# Templates »** (WinUI 3).
 
 ### 2. Le modèle vocal français (obligatoire pour la voix)
+
+**Méthode simple** : lance Lucie. Les paramètres s'ouvrent avec un bandeau orange : clique sur **« Télécharger automatiquement »**. Elle télécharge et installe le modèle (~40 Mo) toute seule.
+
+**Méthode manuelle** (si le téléchargement automatique échoue) :
 
 1. Va sur https://alphacephei.com/vosk/models.
 2. Télécharge **vosk-model-small-fr-0.22** (environ 40 Mo).
@@ -48,6 +73,13 @@ Discord n'a pas de raccourci pour le micro par défaut. Dans **Discord › Param
 Ce sont ceux déjà configurés dans Lucie. Si tu en choisis d'autres, change-les aussi dans **Paramètres › Commandes et raccourcis**.
 
 L'enregistrement d'écran utilise la Game Bar de Windows (`Win+Alt+R`), qui doit être activée dans les paramètres Windows.
+
+## Mettre l'appli en ligne
+
+1. Double-clique sur **`Publier.bat`** (à côté de `Lucie.sln`).
+2. Il crée `publish\Lucie-Windows-x64.zip`, une version qui marche sans Visual Studio et sans rien installer.
+3. Mets ce zip en ligne (par exemple dans une « Release » GitHub).
+4. Pour l'utiliser, on dézippe le fichier et on lance `Lucie.exe`. Le modèle vocal se télécharge au premier lancement.
 
 ## Écrire un raccourci
 

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Lucie.Models;
 
 namespace Lucie.Services;
@@ -17,7 +16,10 @@ public sealed class ActionExecutor
             switch (command.Action)
             {
                 case CommandAction.OpenApp:
-                    Launch(command.Target, command.Arguments);
+                    // Un programme (.exe) : on l'ouvre ou on le met devant. Un lien / fichier : on l'ouvre.
+                    if (command.Target.Trim().Trim('"').EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                        return await AppLauncher.OpenOrShowAsync(new AppEntry { Name = "", Path = command.Target, Arguments = command.Arguments });
+                    AppLauncher.Launch(command.Target, command.Arguments);
                     return true;
 
                 case CommandAction.Shortcut:
@@ -30,11 +32,27 @@ public sealed class ActionExecutor
                 case CommandAction.MediaPlayPause:
                     return await _media.TogglePlayPauseAsync();
 
+                case CommandAction.MediaPlay:
+                    return await _media.PlayAsync();
+
+                case CommandAction.MediaPause:
+                    return await _media.PauseAsync();
+
                 case CommandAction.MediaNext:
                     return await _media.NextAsync();
 
                 case CommandAction.MediaPrevious:
                     return await _media.PreviousAsync();
+
+                case CommandAction.VolumeUp:
+                    return await TapAsync(KeyboardSimulator.VK_VOLUME_UP, 5);
+
+                case CommandAction.VolumeDown:
+                    return await TapAsync(KeyboardSimulator.VK_VOLUME_DOWN, 5);
+
+                case CommandAction.VolumeMute:
+                    KeyboardSimulator.Tap(KeyboardSimulator.VK_VOLUME_MUTE);
+                    return true;
             }
         }
         catch
@@ -44,17 +62,25 @@ public sealed class ActionExecutor
         return false;
     }
 
-    private static void Launch(string target, string arguments)
+    public async Task<bool> OpenAppAsync(AppEntry app)
     {
-        var path = Environment.ExpandEnvironmentVariables(target.Trim().Trim('"'));
-        if (path.Length == 0) throw new InvalidOperationException("Aucune cible");
+        try
+        {
+            return await AppLauncher.OpenOrShowAsync(app);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
-        var psi = new ProcessStartInfo(path) { UseShellExecute = true };
-        if (!string.IsNullOrWhiteSpace(arguments))
-            psi.Arguments = Environment.ExpandEnvironmentVariables(arguments);
-        if (Path.IsPathRooted(path) && Path.GetDirectoryName(path) is string dir)
-            psi.WorkingDirectory = dir;
-
-        Process.Start(psi);
+    private static async Task<bool> TapAsync(ushort key, int times)
+    {
+        for (int i = 0; i < times; i++)
+        {
+            KeyboardSimulator.Tap(key);
+            await Task.Delay(30);
+        }
+        return true;
     }
 }

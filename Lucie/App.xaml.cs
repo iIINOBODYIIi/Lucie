@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Lucie.Services;
 using Lucie.Views;
 using Microsoft.UI.Xaml;
@@ -18,40 +19,54 @@ public partial class App : Application
     public static SolidColorBrush Accent => (SolidColorBrush)Application.Current.Resources["LucieAccent"];
 
     private static Mutex? _singleInstance;
+    private static bool _reported;
     private WidgetWindow? _widget;
     private SettingsWindow? _settingsWindow;
 
     public App()
     {
+        // Si Lucie plante, on affiche et on enregistre la vraie raison au lieu de disparaître en silence.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => Report(e.ExceptionObject as Exception, null);
+        TaskScheduler.UnobservedTaskException += (_, e) => { Report(e.Exception, null); e.SetObserved(); };
+        UnhandledException += (_, e) => Report(e.Exception, e.Message);
+
         InitializeComponent();
     }
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        // Une seule Lucie à la fois.
-        _singleInstance = new Mutex(true, "Lucie.Assistant.SingleInstance", out bool createdNew);
-        if (!createdNew)
+        try
         {
-            Exit();
-            return;
+            // Une seule Lucie à la fois.
+            _singleInstance = new Mutex(true, "Lucie.Assistant.SingleInstance", out bool createdNew);
+            if (!createdNew)
+            {
+                Exit();
+                return;
+            }
+
+            Settings.Load();
+            ApplyAccent();
+
+            Sounds = new SoundService(Settings);
+            Media = new MediaService();
+            Actions = new ActionExecutor(Media);
+            Speech = new SpeechService(Settings);
+
+            _widget = new WidgetWindow();
+            _widget.Activate();
+
+            await Media.InitializeAsync();
+            Speech.Start();
+
+            // Premier lancement sans modèle vocal : on ouvre les paramètres pour expliquer quoi faire.
+            if (!Speech.ModelAvailable) OpenSettings();
         }
-
-        Settings.Load();
-        ApplyAccent();
-
-        Sounds = new SoundService(Settings);
-        Media = new MediaService();
-        Actions = new ActionExecutor(Media);
-        Speech = new SpeechService(Settings);
-
-        _widget = new WidgetWindow();
-        _widget.Activate();
-
-        await Media.InitializeAsync();
-        Speech.Start();
-
-        // Premier lancement sans modèle vocal : on ouvre les paramètres pour expliquer quoi faire.
-        if (!Speech.ModelAvailable) OpenSettings();
+        catch (Exception ex)
+        {
+            Report(ex, null);
+            Exit();
+        }
     }
 
     public static void ApplyAccent()
@@ -76,5 +91,32 @@ public partial class App : Application
         _settingsWindow?.Close();
         _widget?.Close();
         Exit();
+    }
+
+    // ───────────── Rapport de plantage ─────────────
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int MessageBoxW(IntPtr hWnd, string text, string caption, uint type);
+
+    private static void Report(Exception? ex, string? xamlMessage)
+    {
+        if (_reported) return;
+        _reported = true;
+
+        var text = "Lucie a rencontré une erreur au démarrage.\n\n";
+        if (!string.IsNullOrWhiteSpace(xamlMessage)) text += xamlMessage + "\n\n";
+        text += ex?.ToString() ?? "(aucun détail)";
+
+        string file = Path.Combine(SettingsService.DataDir, "erreur.txt");
+        try
+        {
+            Directory.CreateDirectory(SettingsService.DataDir);
+            File.WriteAllText(file, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss}\n{text}");
+        }
+        catch
+        {
+        }
+
+        MessageBoxW(IntPtr.Zero, text + $"\n\n(Copie enregistrée dans {file})", "Lucie — erreur", 0x10);
     }
 }

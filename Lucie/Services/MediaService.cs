@@ -144,6 +144,20 @@ public sealed class MediaService
         return true;
     }
 
+    public async Task<bool> PlayAsync()
+    {
+        if (_session is not null) return await _session.TryPlayAsync() || IsPlaying;
+        KeyboardSimulator.Tap(KeyboardSimulator.VK_MEDIA_PLAY_PAUSE);
+        return true;
+    }
+
+    public async Task<bool> PauseAsync()
+    {
+        if (_session is not null) return await _session.TryPauseAsync() || !IsPlaying;
+        KeyboardSimulator.Tap(KeyboardSimulator.VK_MEDIA_PLAY_PAUSE);
+        return true;
+    }
+
     public async Task<bool> NextAsync()
     {
         if (_session is not null) return await _session.TrySkipNextAsync();

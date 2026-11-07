@@ -69,6 +69,9 @@
                 <NavigationViewItem Content="Sons" Tag="sounds">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE767;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Content="Applications" Tag="apps">
+                    <NavigationViewItem.Icon><FontIcon Glyph="&#xE71D;" /></NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem Content="Commandes et raccourcis" Tag="commands">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE765;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -82,7 +85,16 @@
                         <TextBlock Style="{StaticResource SectionTitle}" Text="Général" />
                         <InfoBar x:Name="ModelInfo" Severity="Warning" IsClosable="False"
                                  Title="Modèle vocal manquant"
-                                 Message="Lucie ne peut pas encore t'entendre. Télécharge le modèle français (voir README)." />
+                                 Message="Lucie ne peut pas encore t'entendre : il lui faut le modèle vocal français (environ 40 Mo).">
+                            <InfoBar.ActionButton>
+                                <Button x:Name="DownloadButton" Content="Télécharger automatiquement" Click="DownloadModel_Click" />
+                            </InfoBar.ActionButton>
+                            <StackPanel Spacing="6" Margin="0,0,0,12">
+                                <ProgressBar x:Name="DownloadProgress" Width="320" HorizontalAlignment="Left" Minimum="0" Maximum="1"
+                                             Visibility="Collapsed" Foreground="{StaticResource LucieAccent}" />
+                                <TextBlock x:Name="DownloadText" Style="{StaticResource Hint}" />
+                            </StackPanel>
+                        </InfoBar>
                         <Border Style="{StaticResource Card}">
                             <StackPanel Spacing="18">
                                 <StackPanel Spacing="6">
@@ -91,6 +103,22 @@
                                     <TextBlock x:Name="WakeHint" Style="{StaticResource Hint}" />
                                 </StackPanel>
                                 <ToggleSwitch x:Name="StartupSwitch" Header="Lancer au démarrage de Windows" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="18">
+                                <StackPanel Spacing="6">
+                                    <RadioButtons x:Name="ListenRadios" Header="Mode d'écoute">
+                                        <x:String>Toujours prête : elle réagit quand tu dis son nom</x:String>
+                                        <x:String>Seulement quand je l'active (clic sur le widget ou raccourci)</x:String>
+                                    </RadioButtons>
+                                    <TextBlock Style="{StaticResource Hint}" Text="Dans le 2e mode, le micro reste coupé tant que tu n'actives pas Lucie." />
+                                </StackPanel>
+                                <StackPanel Spacing="6">
+                                    <TextBox x:Name="HotkeyBox" Header="Raccourci clavier pour parler à Lucie" PlaceholderText="Ctrl+Alt+L"
+                                             Width="320" HorizontalAlignment="Left" />
+                                    <TextBlock x:Name="HotkeyHint" Style="{StaticResource Hint}" Text="Marche partout, même en jeu. Appuie une 2e fois pour annuler." />
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -214,6 +242,52 @@
                         </Border>
                     </StackPanel>
 
+                    <!-- Applications -->
+                    <StackPanel x:Name="SecApps" Spacing="14" Visibility="Collapsed">
+                        <Grid>
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Applications" />
+                            <Button Content="+ Ajouter une application…" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}"
+                                    Click="AddApp_Click" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}"
+                                   Text="Dis « Ouvre Cider » ou « Montre-moi Discord ». Si l'appli est déjà ouverte (même cachée), Lucie la met devant toi. Si Lucie comprend mal un nom, ajoute d'autres façons de le dire séparées par / (ex. Cider / cidre / si dire) : regarde ce qu'elle a entendu dans « Commandes et raccourcis »." />
+                        <Border Style="{StaticResource Card}" Padding="12">
+                            <StackPanel>
+                                <Grid ColumnSpacing="8" Padding="4,0,4,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.4*" />
+                                        <ColumnDefinition Width="2.6*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="40" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Style="{StaticResource Hint}" Text="NOM À DIRE" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="PROGRAMME (.EXE)" />
+                                </Grid>
+                                <ItemsControl x:Name="AppList">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:AppEntry">
+                                            <Grid ColumnSpacing="8" Padding="4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="1.4*" />
+                                                    <ColumnDefinition Width="2.6*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="40" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Cider" />
+                                                <TextBox Grid.Column="1" Text="{x:Bind Path, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="C:\…\Cider.exe" />
+                                                <Button Grid.Column="2" Content="Parcourir…" Tag="{x:Bind}" Click="BrowseApp_Click" />
+                                                <Button Grid.Column="3" Width="36" Height="36" Padding="0" Background="Transparent" BorderThickness="0"
+                                                        Tag="{x:Bind}" Click="DeleteApp_Click" ToolTipService.ToolTip="Supprimer">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                                </Button>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
                     <!-- Commandes -->
                     <StackPanel x:Name="SecCommands" Spacing="14" Visibility="Collapsed">
                         <Grid>
@@ -222,7 +296,14 @@
                                     Click="AddCommand_Click" />
                         </Grid>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Pour Discord : mets ici exactement les mêmes raccourcis que dans Discord › Paramètres › Raccourcis clavier. Lucie les tape à ta place. Si tu dis « ouvre Spotify » sans commande dédiée, elle cherche l'appli dans le menu Démarrer." />
+                                   Text="Sépare plusieurs façons de dire la même chose par / (ex. pause / arrête la musique). Pour Discord : mets ici les mêmes raccourcis que dans Discord › Paramètres › Raccourcis clavier, Lucie les tape à ta place." />
+                        <Border Style="{StaticResource Card}" Padding="16">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Dernière phrase entendue" FontWeight="SemiBold" />
+                                <TextBlock x:Name="LastHeardText" Style="{StaticResource Hint}" FontSize="14"
+                                           Text="(rien pour l'instant : parle à Lucie pour tester)" />
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource Card}" Padding="12">
                             <StackPanel>
                                 <Grid ColumnSpacing="8" Padding="4,0,4,8">
@@ -252,12 +333,17 @@
                                                 <TextBox Text="{x:Bind Phrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="ouvre discord" />
                                                 <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
                                                           SelectedIndex="{x:Bind ActionIndex, Mode=TwoWay}">
-                                                    <x:String>Ouvrir une appli / un lien</x:String>
+                                                    <x:String>Ouvrir un lien / programme</x:String>
                                                     <x:String>Raccourci clavier</x:String>
                                                     <x:String>Capture d'écran</x:String>
                                                     <x:String>Lecture / pause</x:String>
                                                     <x:String>Morceau suivant</x:String>
                                                     <x:String>Morceau précédent</x:String>
+                                                    <x:String>Lecture</x:String>
+                                                    <x:String>Pause</x:String>
+                                                    <x:String>Monter le son</x:String>
+                                                    <x:String>Baisser le son</x:String>
+                                                    <x:String>Couper / remettre le son</x:String>
                                                 </ComboBox>
                                                 <TextBox Grid.Column="2" Text="{x:Bind Target, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Ctrl+Maj+M" />
                                                 <TextBox Grid.Column="3" Text="{x:Bind Arguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="(facultatif)" />

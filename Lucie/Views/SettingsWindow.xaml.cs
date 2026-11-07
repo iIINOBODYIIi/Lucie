@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
+using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace Lucie.Views;
@@ -16,6 +17,8 @@ public sealed partial class SettingsWindow : Window
     private const string DefaultDevice = "Par défaut (Windows)";
 
     private readonly ObservableCollection<VoiceCommand> _commands = new();
+    private readonly ObservableCollection<AppEntry> _apps = new();
+    private readonly IntPtr _hwnd;
     private WidgetPosition _position;
     private string _accent = "#9AB8FF";
 
@@ -27,15 +30,20 @@ public sealed partial class SettingsWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
 
-        var hwnd = WindowNative.GetWindowHandle(this);
-        double scale = Win32.ScaleFor(hwnd);
+        _hwnd = WindowNative.GetWindowHandle(this);
+        double scale = Win32.ScaleFor(_hwnd);
         AppWindow.Resize(new SizeInt32((int)(1060 * scale), (int)(780 * scale)));
 
         LoadValues();
         Nav.SelectedItem = Nav.MenuItems[0];
 
         App.Speech.LevelChanged += OnLevel;
-        Closed += (_, _) => App.Speech.LevelChanged -= OnLevel;
+        App.Speech.Heard += OnHeard;
+        Closed += (_, _) =>
+        {
+            App.Speech.LevelChanged -= OnLevel;
+            App.Speech.Heard -= OnHeard;
+        };
     }
 
     private void LoadValues()
@@ -47,8 +55,9 @@ public sealed partial class SettingsWindow : Window
         // Général
         NameBox.Text = s.AssistantName;
         StartupSwitch.IsOn = s.StartWithWindows;
+        ListenRadios.SelectedIndex = (int)s.ListenMode;
+        HotkeyBox.Text = s.TalkHotkey;
         ModelInfo.IsOpen = !App.Speech.ModelAvailable;
-        ModelInfo.Message = $"Lucie ne peut pas encore t'entendre. Télécharge le modèle français de Vosk et décompresse-le dans : {SpeechService.PreferredModelDir}";
 
         // Audio
         FillDevices(MicBox, AudioDevices.Inputs(), s.MicrophoneName);
@@ -77,6 +86,12 @@ public sealed partial class SettingsWindow : Window
         _commands.Clear();
         foreach (var c in s.Commands) _commands.Add(c.Clone());
         CommandList.ItemsSource = _commands;
+        if (App.Speech.LastHeard.Length > 0) LastHeardText.Text = $"« {App.Speech.LastHeard} »";
+
+        // Applications
+        _apps.Clear();
+        foreach (var a in s.Apps) _apps.Add(a.Clone());
+        AppList.ItemsSource = _apps;
     }
 
     private static void FillDevices(ComboBox box, IReadOnlyList<string> devices, string? selected)
@@ -109,6 +124,7 @@ public sealed partial class SettingsWindow : Window
         SecWidget.Visibility = Show(tag == "widget");
         SecLook.Visibility = Show(tag == "look");
         SecSounds.Visibility = Show(tag == "sounds");
+        SecApps.Visibility = Show(tag == "apps");
         SecCommands.Visibility = Show(tag == "commands");
     }
 
@@ -122,9 +138,49 @@ public sealed partial class SettingsWindow : Window
         WakeHint.Text = $"Dis « Salut {name} » pour l'activer. Astuce : choisis un prénom courant, il sera mieux reconnu.";
     }
 
+    private async void DownloadModel_Click(object sender, RoutedEventArgs e)
+    {
+        DownloadButton.IsEnabled = false;
+        DownloadProgress.Visibility = Visibility.Visible;
+        DownloadText.Text = "Téléchargement en cours…";
+
+        var progress = new Progress<double>(p =>
+        {
+            DownloadProgress.IsIndeterminate = p < 0;
+            if (p >= 0)
+            {
+                DownloadProgress.Value = p;
+                DownloadText.Text = $"Téléchargement… {p:P0}";
+            }
+            else
+            {
+                DownloadText.Text = "Installation…";
+            }
+        });
+
+        try
+        {
+            await ModelDownloader.DownloadAsync(progress);
+            App.Speech.Start();
+            ModelInfo.IsOpen = !App.Speech.ModelAvailable;
+            DownloadText.Text = App.Speech.ModelAvailable ? "C'est prêt ! Dis « Salut " + App.Settings.Current.AssistantName + " »." : "Modèle installé, mais impossible de le charger.";
+        }
+        catch (Exception ex)
+        {
+            DownloadText.Text = ex.Message + " — tu peux aussi l'installer à la main (voir README).";
+            DownloadButton.IsEnabled = true;
+        }
+        finally
+        {
+            DownloadProgress.Visibility = Visibility.Collapsed;
+        }
+    }
+
     // ───────────── Audio ─────────────
 
     private void OnLevel(double level) => DispatcherQueue.TryEnqueue(() => LevelBar.Value = level);
+
+    private void OnHeard(string text) => DispatcherQueue.TryEnqueue(() => LastHeardText.Text = $"« {text} »");
 
     private void TestSound_Click(object sender, RoutedEventArgs e) =>
         App.Sounds.Preview((SoundTheme)Math.Max(0, ThemeRadios.SelectedIndex), Math.Max(0.2, VolumeSlider.Value / 100), SelectedDevice(OutBox));
@@ -182,6 +238,69 @@ public sealed partial class SettingsWindow : Window
             _commands.Remove(c);
     }
 
+    // ───────────── Applications ─────────────
+
+    private async void AddApp_Click(object sender, RoutedEventArgs e)
+    {
+        var path = await PickExeAsync();
+        if (path is null) return;
+        _apps.Add(new AppEntry { Name = FriendlyName(path), Path = path });
+    }
+
+    private async void BrowseApp_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: AppEntry app }) return;
+        var path = await PickExeAsync();
+        if (path is null) return;
+
+        // On remplace la ligne pour que l'écran se mette à jour.
+        int index = _apps.IndexOf(app);
+        var updated = app.Clone();
+        updated.Path = path;
+        updated.Arguments = "";
+        updated.ProcessName = "";
+        if (string.IsNullOrWhiteSpace(updated.Name)) updated.Name = FriendlyName(path);
+        if (index >= 0) _apps[index] = updated;
+    }
+
+    private void DeleteApp_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: AppEntry app })
+            _apps.Remove(app);
+    }
+
+    private async Task<string?> PickExeAsync()
+    {
+        try
+        {
+            var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.ComputerFolder };
+            picker.FileTypeFilter.Add(".exe");
+            picker.FileTypeFilter.Add(".lnk");
+            InitializeWithWindow.Initialize(picker, _hwnd);
+            var file = await picker.PickSingleFileAsync();
+            return file?.Path;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>« C:\…\Cider.exe » → « Cider » (nom affiché par le programme quand il en a un).</summary>
+    private static string FriendlyName(string path)
+    {
+        try
+        {
+            var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+            var name = string.IsNullOrWhiteSpace(info.ProductName) ? info.FileDescription : info.ProductName;
+            if (!string.IsNullOrWhiteSpace(name) && name.Length <= 30) return name.Trim();
+        }
+        catch
+        {
+        }
+        return System.IO.Path.GetFileNameWithoutExtension(path);
+    }
+
     // ───────────── Enregistrer ─────────────
 
     private void Save_Click(object sender, RoutedEventArgs e)
@@ -190,7 +309,18 @@ public sealed partial class SettingsWindow : Window
 
         string name = string.IsNullOrWhiteSpace(NameBox.Text) ? "Lucie" : NameBox.Text.Trim();
         string? mic = SelectedDevice(MicBox);
-        bool restartSpeech = name != s.AssistantName || mic != s.MicrophoneName;
+        var mode = (ListenMode)Math.Max(0, ListenRadios.SelectedIndex);
+        bool restartSpeech = name != s.AssistantName || mic != s.MicrophoneName || mode != s.ListenMode;
+        s.ListenMode = mode;
+
+        var hotkey = HotkeyBox.Text.Trim();
+        if (hotkey.Length > 0 && !KeyboardSimulator.TryParse(hotkey, out _))
+        {
+            HotkeyHint.Text = "Raccourci non reconnu. Exemple : Ctrl+Alt+L";
+            Nav.SelectedItem = Nav.MenuItems[0];
+            return;
+        }
+        s.TalkHotkey = hotkey;
 
         s.AssistantName = name;
         s.StartWithWindows = StartupSwitch.IsOn;
@@ -215,6 +345,11 @@ public sealed partial class SettingsWindow : Window
         s.Commands = _commands
             .Where(c => !string.IsNullOrWhiteSpace(c.Phrase))
             .Select(c => c.Clone())
+            .ToList();
+
+        s.Apps = _apps
+            .Where(a => !string.IsNullOrWhiteSpace(a.Name) && !string.IsNullOrWhiteSpace(a.Path))
+            .Select(a => a.Clone())
             .ToList();
 
         App.ApplyAccent();

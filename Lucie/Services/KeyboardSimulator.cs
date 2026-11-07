@@ -16,6 +16,9 @@ internal static class KeyboardSimulator
     public const ushort VK_MEDIA_NEXT = 0xB0;
     public const ushort VK_MEDIA_PREV = 0xB1;
     public const ushort VK_MEDIA_PLAY_PAUSE = 0xB3;
+    public const ushort VK_VOLUME_MUTE = 0xAD;
+    public const ushort VK_VOLUME_DOWN = 0xAE;
+    public const ushort VK_VOLUME_UP = 0xAF;
 
     private static readonly Dictionary<string, ushort> Named = new(StringComparer.OrdinalIgnoreCase)
     {
