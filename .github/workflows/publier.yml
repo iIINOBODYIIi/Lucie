@@ -25,8 +25,13 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Compiler Lucie
-        run: dotnet publish Lucie/Lucie.csproj -c Release -r win-x64 --self-contained true -p:Platform=x64 -o publish/Lucie
+      -       - name: Compiler Lucie
+        shell: pwsh
+        run: |
+          $projet = Get-ChildItem -Recurse -Filter Lucie.csproj | Select-Object -First 1
+          if (-not $projet) { Write-Error "Lucie.csproj introuvable dans le dépôt"; exit 1 }
+          Write-Host "Projet trouvé : $($projet.FullName)"
+          dotnet publish $projet.FullName -c Release -r win-x64 --self-contained true -p:Platform=x64 -o publish/Lucie
 
       - name: Créer le zip
         shell: pwsh
