@@ -4,8 +4,11 @@ using Lucie.Models;
 
 namespace Lucie.Services;
 
-/// <summary>Ce que Lucie a compris : une commande, ou une appli à ouvrir / montrer.</summary>
-public sealed record Intent(VoiceCommand? Command, AppEntry? App);
+/// <summary>
+/// Ce que Lucie a compris : une commande, une appli à ouvrir / montrer,
+/// ou le raccourci d'une appli (Command + ShortcutApp).
+/// </summary>
+public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null);
 
 /// <summary>
 /// Transforme une phrase entendue en action.
@@ -38,9 +41,24 @@ public sealed class CommandInterpreter
         if (text.Length == 0) return null;
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
 
-        // 1. Une commande de la liste
-        var (command, score) = BestCommand(text, words, settings.Commands);
-        if (command is not null && score >= 1.0) return new Intent(command, null);
+        // Toutes les phrases possibles : commandes générales + raccourcis de chaque appli
+        var owners = new Dictionary<VoiceCommand, AppEntry>();
+        var all = new List<VoiceCommand>(settings.Commands);
+        foreach (var app in settings.Apps)
+        {
+            foreach (var sc in app.Shortcuts)
+            {
+                if (string.IsNullOrWhiteSpace(sc.Phrase) || string.IsNullOrWhiteSpace(sc.Keys)) continue;
+                var cmd = new VoiceCommand { Phrase = sc.Phrase, Action = CommandAction.Shortcut, Target = sc.Keys };
+                owners[cmd] = app;
+                all.Add(cmd);
+            }
+        }
+        Intent Make(VoiceCommand c) => new(c, null, owners.TryGetValue(c, out var a) ? a : null);
+
+        // 1. Une phrase connue
+        var (command, score) = BestCommand(text, words, all);
+        if (command is not null && score >= 1.0) return Make(command);
 
         // 2. « Ouvre / montre-moi » + une appli enregistrée
         int verb = words.FindIndex(OpenVerbs.Contains);
@@ -53,13 +71,13 @@ public sealed class CommandInterpreter
                 if (app is not null) return new Intent(null, app);
 
                 // 3. Une commande approchante, sinon le menu Démarrer
-                if (command is not null && score >= 0.66) return new Intent(command, null);
+                if (command is not null && score >= 0.66) return Make(command);
                 var startMenu = AppLauncher.FindStartMenuApp(name);
                 if (startMenu is not null) return new Intent(null, startMenu);
             }
         }
 
-        return command is not null && score >= 0.66 ? new Intent(command, null) : null;
+        return command is not null && score >= 0.66 ? Make(command) : null;
     }
 
     private static (VoiceCommand? Command, double Score) BestCommand(string text, List<string> words, IEnumerable<VoiceCommand> commands)

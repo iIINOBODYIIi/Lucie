@@ -232,7 +232,7 @@ public sealed partial class SettingsWindow : Window
     // ───────────── Commandes ─────────────
 
     private void AddCommand_Click(object sender, RoutedEventArgs e) =>
-        _commands.Add(new VoiceCommand { Phrase = "", Action = CommandAction.Shortcut });
+        _commands.Add(new VoiceCommand { Phrase = "", Action = CommandAction.MediaPlayPause });
 
     private void DeleteCommand_Click(object sender, RoutedEventArgs e)
     {
@@ -240,13 +240,20 @@ public sealed partial class SettingsWindow : Window
             _commands.Remove(c);
     }
 
-    // ───────────── Applications ─────────────
+    private async void TestCommand_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: VoiceCommand c } button) return;
+        await RunTestAsync(button, () => App.Actions.ExecuteAsync(c), c.Action == CommandAction.Shortcut);
+    }
+
+    // ───────────── Applications et raccourcis ─────────────
 
     private async void AddApp_Click(object sender, RoutedEventArgs e)
     {
         var path = await PickExeAsync();
         if (path is null) return;
-        _apps.Add(new AppEntry { Name = FriendlyName(path), Path = path });
+        foreach (var a in _apps) a.IsExpanded = false;
+        _apps.Add(new AppEntry { Name = FriendlyName(path), Path = path, FocusBeforeShortcut = true, IsExpanded = true });
     }
 
     private async void BrowseApp_Click(object sender, RoutedEventArgs e)
@@ -255,20 +262,68 @@ public sealed partial class SettingsWindow : Window
         var path = await PickExeAsync();
         if (path is null) return;
 
-        // On remplace la ligne pour que l'écran se mette à jour.
-        int index = _apps.IndexOf(app);
-        var updated = app.Clone();
-        updated.Path = path;
-        updated.Arguments = "";
-        updated.ProcessName = "";
-        if (string.IsNullOrWhiteSpace(updated.Name)) updated.Name = FriendlyName(path);
-        if (index >= 0) _apps[index] = updated;
+        app.Path = path;
+        app.Arguments = "";
+        app.ProcessName = "";
+        if (string.IsNullOrWhiteSpace(app.Name)) app.Name = FriendlyName(path);
     }
 
     private void DeleteApp_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: AppEntry app })
             _apps.Remove(app);
+    }
+
+    private void AddAppShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: AppEntry app })
+            app.Shortcuts.Add(new AppShortcut());
+    }
+
+    private void DeleteAppShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: AppShortcut sc }) return;
+        OwnerOf(sc)?.Shortcuts.Remove(sc);
+    }
+
+    private async void TestAppShortcut_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: AppShortcut sc } button) return;
+        var app = OwnerOf(sc);
+        if (app is null) return;
+        await RunTestAsync(button, () => App.Actions.RunAppShortcutAsync(app, sc.Keys), !app.FocusBeforeShortcut);
+    }
+
+    private AppEntry? OwnerOf(AppShortcut sc) => _apps.FirstOrDefault(a => a.Shortcuts.Contains(sc));
+
+    /// <summary>
+    /// Lance un test et affiche le résultat sur le bouton. Pour un raccourci,
+    /// on attend 2 secondes : le temps de lâcher la souris (et que les paramètres ne gênent pas).
+    /// </summary>
+    private static async Task RunTestAsync(Button button, Func<Task<bool>> action, bool countdown)
+    {
+        var original = button.Content;
+        button.IsEnabled = false;
+        try
+        {
+            if (countdown)
+            {
+                for (int i = 2; i > 0; i--)
+                {
+                    button.Content = $"{i}…";
+                    await Task.Delay(1000);
+                }
+            }
+            bool ok = await action();
+            button.Content = ok ? "✓ Envoyé" : "✗ Échec";
+            if (ok) App.Sounds.PlayDone(); else App.Sounds.PlayError();
+            await Task.Delay(1500);
+        }
+        finally
+        {
+            button.Content = original;
+            button.IsEnabled = true;
+        }
     }
 
     private async Task<string?> PickExeAsync()
@@ -351,7 +406,13 @@ public sealed partial class SettingsWindow : Window
 
         s.Apps = _apps
             .Where(a => !string.IsNullOrWhiteSpace(a.Name) && !string.IsNullOrWhiteSpace(a.Path))
-            .Select(a => a.Clone())
+            .Select(a =>
+            {
+                var copy = a.Clone();
+                foreach (var sc in copy.Shortcuts.Where(x => string.IsNullOrWhiteSpace(x.Phrase) || string.IsNullOrWhiteSpace(x.Keys)).ToList())
+                    copy.Shortcuts.Remove(sc);
+                return copy;
+            })
             .ToList();
 
         App.ApplyAccent();

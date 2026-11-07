@@ -62,6 +62,36 @@ public sealed class ActionExecutor
         return false;
     }
 
+    /// <summary>Exécute tout ce que Lucie a compris.</summary>
+    public async Task<bool> RunAsync(Intent intent)
+    {
+        if (intent.App is AppEntry app) return await OpenAppAsync(app);
+        if (intent.Command is null) return false;
+        if (intent.ShortcutApp is AppEntry owner) return await RunAppShortcutAsync(owner, intent.Command.Target);
+        return await ExecuteAsync(intent.Command);
+    }
+
+    /// <summary>
+    /// Raccourci d'une appli : on la met devant si besoin (raccourcis « locaux »),
+    /// puis on tape les touches.
+    /// </summary>
+    public async Task<bool> RunAppShortcutAsync(AppEntry app, string keys)
+    {
+        try
+        {
+            if (app.FocusBeforeShortcut && !string.IsNullOrWhiteSpace(app.Path))
+            {
+                await AppLauncher.OpenOrShowAsync(app);
+                await Task.Delay(350);   // le temps que la fenêtre soit vraiment active
+            }
+            return await KeyboardSimulator.SendComboAsync(keys);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<bool> OpenAppAsync(AppEntry app)
     {
         try

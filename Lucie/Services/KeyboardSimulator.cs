@@ -73,9 +73,21 @@ internal static class KeyboardSimulator
     public static async Task<bool> SendComboAsync(string combo)
     {
         if (!TryParse(combo, out var keys)) return false;
-        Send(keys.Select(k => Make(k, up: false)).ToArray());
-        await Task.Delay(45);
-        Send(keys.AsEnumerable().Reverse().Select(k => Make(k, up: true)).ToArray());
+
+        // Comme une vraie main : chaque touche enfoncée l'une après l'autre, maintenue un instant,
+        // puis relâchées dans l'ordre inverse. Certaines applis (Discord, jeux) ignorent les
+        // raccourcis « instantanés ».
+        foreach (var k in keys)
+        {
+            Send(new[] { Make(k, up: false) });
+            await Task.Delay(25);
+        }
+        await Task.Delay(90);
+        foreach (var k in keys.AsEnumerable().Reverse())
+        {
+            Send(new[] { Make(k, up: true) });
+            await Task.Delay(15);
+        }
         return true;
     }
 

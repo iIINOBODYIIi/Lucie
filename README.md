@@ -23,8 +23,9 @@ Windows 10 / 11 · 64-bit · free · works offline
 ## ✨ What she can do
 
 - **🎙️ Wake word**: say *« Salut Lucie »* and she's listening. You can say it all in one go: *« Salut Lucie, ouvre Discord »*.
+- **🫧 Hover menu**: move your mouse over Lucie to mute the mic, type a command or open the settings.
 - **🖱️ Click or shortcut**: click the widget or press **Ctrl + Alt + L** (works in games too) to talk without the wake word.
-- **🪟 Apps**: *« Ouvre Cider »*, *« Montre-moi Discord »*. If the app is already open, even hidden in the tray, Lucie brings it to the front. Add any `.exe` in the settings.
+- **🪟 Apps and their shortcuts**: *« Ouvre Cider »*, *« Montre-moi Discord »*. If the app is already open, even hidden in the tray, Lucie brings it to the front. Each app has its own voice shortcuts (*« Coupe mon micro »* → `Ctrl+Shift+M` in Discord). Record the keys in one click, then test them.
 - **🎵 Music and volume**: play, pause, next, previous, volume up, down or mute. Works with Spotify, Apple Music, Cider, your browser, and more.
 - **🎧 Live player**: when a song starts, the widget stretches to show the cover, title and controls, then tucks itself away.
 - **🎮 Discord and Game Bar**: mute your mic, deafen yourself, start a screen recording, take a screenshot.
@@ -75,8 +76,8 @@ Discord has no default shortcut for mute and deafen. In **Discord › Settings �
 - **Widget**: position (9 spots or drag-and-drop), size, transparency, sleep delay, mouse detection zone, live music player.
 - **Look**: transparent settings window, accent colour.
 - **Sounds**: on/off, volume, three sound themes.
-- **Apps**: add any program and the names you call it (e.g. `Cider / cidre`).
-- **Commands & shortcuts**: every phrase and action, plus **the last sentence Lucie heard** to help you fine-tune.
+- **Apps & shortcuts**: one card per app: the names you call it (e.g. `Cider / cidre`), the program, and its keyboard shortcuts with a **record** and a **test** button.
+- **General commands**: music, volume, screenshot, links and Windows shortcuts, plus **the last sentence Lucie heard** to help you fine-tune.
 
 ## ❓ FAQ
 

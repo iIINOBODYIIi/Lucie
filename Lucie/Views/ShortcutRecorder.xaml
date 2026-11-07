@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Lucie.Views.ShortcutRecorder"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Un champ de raccourci : on peut l'écrire, ou cliquer sur ⏺ puis appuyer sur les touches. -->
+    <StackPanel Spacing="2">
+        <Grid ColumnSpacing="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="KeysBox" PlaceholderText="Ctrl+Maj+M" TextChanged="KeysBox_TextChanged" />
+            <Button x:Name="RecordButton" Grid.Column="1" Width="36" Height="32" Padding="0"
+                    Click="Record_Click" ToolTipService.ToolTip="Cliquer puis appuyer sur les touches">
+                <FontIcon x:Name="RecordIcon" Glyph="&#xE7C8;" FontSize="13" />
+            </Button>
+        </Grid>
+        <TextBlock x:Name="Hint" FontSize="11.5" Foreground="{StaticResource LucieMuted}" Visibility="Collapsed" />
+    </StackPanel>
+</UserControl>

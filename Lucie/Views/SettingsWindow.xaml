@@ -3,7 +3,8 @@
     x:Class="Lucie.Views.SettingsWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:models="using:Lucie.Models">
+    xmlns:models="using:Lucie.Models"
+    xmlns:views="using:Lucie.Views">
 
     <Grid x:Name="Root">
         <Grid.Resources>
@@ -69,10 +70,10 @@
                 <NavigationViewItem Content="Sons" Tag="sounds">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE767;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Applications" Tag="apps">
+                <NavigationViewItem Content="Applications et raccourcis" Tag="apps">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE71D;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Commandes et raccourcis" Tag="commands">
+                <NavigationViewItem Content="Commandes générales" Tag="commands">
                     <NavigationViewItem.Icon><FontIcon Glyph="&#xE765;" /></NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -242,61 +243,138 @@
                         </Border>
                     </StackPanel>
 
-                    <!-- Applications -->
+                    <!-- Applications et leurs raccourcis -->
                     <StackPanel x:Name="SecApps" Spacing="14" Visibility="Collapsed">
                         <Grid>
-                            <TextBlock Style="{StaticResource SectionTitle}" Text="Applications" />
-                            <Button Content="+ Ajouter une application…" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}"
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Applications et raccourcis" />
+                            <Button Content="+ Ajouter une application" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}"
                                     Click="AddApp_Click" />
                         </Grid>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Dis « Ouvre Cider » ou « Montre-moi Discord ». Si l'appli est déjà ouverte (même cachée), Lucie la met devant toi. Si Lucie comprend mal un nom, ajoute d'autres façons de le dire séparées par / (ex. Cider / cidre / si dire) : regarde ce qu'elle a entendu dans « Commandes et raccourcis »." />
-                        <Border Style="{StaticResource Card}" Padding="12">
-                            <StackPanel>
-                                <Grid ColumnSpacing="8" Padding="4,0,4,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="1.4*" />
-                                        <ColumnDefinition Width="2.6*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="40" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Style="{StaticResource Hint}" Text="NOM À DIRE" />
-                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="PROGRAMME (.EXE)" />
-                                </Grid>
-                                <ItemsControl x:Name="AppList">
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="models:AppEntry">
-                                            <Grid ColumnSpacing="8" Padding="4">
+                                   Text="Clique sur une appli pour la régler. Dis « Ouvre … » ou « Montre-moi … » pour l'afficher, et ajoute ses raccourcis : une phrase → les touches à taper." />
+
+                        <ItemsControl x:Name="AppList">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Spacing="10" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:AppEntry">
+                                    <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                              IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}">
+                                        <Expander.Header>
+                                            <Grid ColumnSpacing="14" Padding="0,10">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="1.4*" />
-                                                    <ColumnDefinition Width="2.6*" />
                                                     <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="40" />
+                                                    <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBox Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Cider" />
-                                                <TextBox Grid.Column="1" Text="{x:Bind Path, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="C:\…\Cider.exe" />
-                                                <Button Grid.Column="2" Content="Parcourir…" Tag="{x:Bind}" Click="BrowseApp_Click" />
-                                                <Button Grid.Column="3" Width="36" Height="36" Padding="0" Background="Transparent" BorderThickness="0"
-                                                        Tag="{x:Bind}" Click="DeleteApp_Click" ToolTipService.ToolTip="Supprimer">
-                                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
-                                                </Button>
+                                                <Border Width="36" Height="36" CornerRadius="10" Background="#1AFFFFFF">
+                                                    <FontIcon Glyph="&#xE71D;" FontSize="16" />
+                                                </Border>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                                                    <TextBlock Text="{x:Bind DisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="15" />
+                                                    <TextBlock Text="{x:Bind ShortcutSummary, Mode=OneWay}" Style="{StaticResource Hint}" />
+                                                </StackPanel>
                                             </Grid>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
-                        </Border>
+                                        </Expander.Header>
+
+                                        <StackPanel Spacing="18" Padding="4,4,4,8">
+                                            <!-- L'appli -->
+                                            <Grid ColumnSpacing="12" RowSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="2*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBox Header="Nom à dire" Text="{x:Bind Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         PlaceholderText="Cider / cidre" />
+                                                <Grid Grid.Column="1" ColumnSpacing="6">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Header="Programme" Text="{x:Bind Path, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                             PlaceholderText="C:\…\Cider.exe" />
+                                                    <Button Grid.Column="1" Content="Parcourir…" VerticalAlignment="Bottom"
+                                                            Tag="{x:Bind}" Click="BrowseApp_Click" />
+                                                </Grid>
+                                            </Grid>
+
+                                            <!-- Ses raccourcis -->
+                                            <StackPanel Spacing="8">
+                                                <TextBlock Text="Raccourcis de l'appli" FontWeight="SemiBold" />
+                                                <TextBlock Style="{StaticResource Hint}"
+                                                           Text="Mets exactement les mêmes touches que dans l'appli (ex. Discord › Paramètres › Raccourcis clavier). Pour enregistrer : clique sur le rond, puis appuie sur les touches." />
+                                                <Grid ColumnSpacing="8" Padding="0,4,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="1.4*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="36" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Style="{StaticResource Hint}" Text="CE QUE TU DIS" />
+                                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="TOUCHES" />
+                                                </Grid>
+                                                <ItemsControl ItemsSource="{x:Bind Shortcuts}">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Spacing="6" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate x:DataType="models:AppShortcut">
+                                                            <Grid ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="1.4*" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="36" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBox Text="{x:Bind Phrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         PlaceholderText="coupe mon micro" VerticalAlignment="Top" />
+                                                                <views:ShortcutRecorder Grid.Column="1" Keys="{x:Bind Keys, Mode=TwoWay}" />
+                                                                <Button Grid.Column="2" Content="Tester" VerticalAlignment="Top"
+                                                                        Tag="{x:Bind}" Click="TestAppShortcut_Click" />
+                                                                <Button Grid.Column="3" Width="36" Height="32" Padding="0" VerticalAlignment="Top"
+                                                                        Background="Transparent" BorderThickness="0"
+                                                                        Tag="{x:Bind}" Click="DeleteAppShortcut_Click" ToolTipService.ToolTip="Supprimer ce raccourci">
+                                                                    <FontIcon Glyph="&#xE74D;" FontSize="13" />
+                                                                </Button>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <Button Content="+ Ajouter un raccourci" Tag="{x:Bind}" Click="AddAppShortcut_Click" />
+                                            </StackPanel>
+
+                                            <!-- Options -->
+                                            <ToggleSwitch IsOn="{x:Bind FocusBeforeShortcut, Mode=TwoWay}"
+                                                          Header="Mettre l'appli devant avant ses raccourcis"
+                                                          OnContent="Oui (raccourcis qui ne marchent que dans l'appli)"
+                                                          OffContent="Non (raccourcis globaux, comme ceux de Discord)" />
+
+                                            <Button Tag="{x:Bind}" Click="DeleteApp_Click">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="13" Foreground="#FF8A8A" />
+                                                    <TextBlock Text="Retirer cette application" Foreground="#FF8A8A" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Expander>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
 
-                    <!-- Commandes -->
+                    <!-- Commandes générales -->
                     <StackPanel x:Name="SecCommands" Spacing="14" Visibility="Collapsed">
                         <Grid>
-                            <TextBlock Style="{StaticResource SectionTitle}" Text="Commandes et raccourcis" />
+                            <TextBlock Style="{StaticResource SectionTitle}" Text="Commandes générales" />
                             <Button Content="+ Ajouter une commande" HorizontalAlignment="Right" Style="{StaticResource AccentButtonStyle}"
                                     Click="AddCommand_Click" />
                         </Grid>
                         <TextBlock Style="{StaticResource Hint}"
-                                   Text="Sépare plusieurs façons de dire la même chose par / (ex. pause / arrête la musique). Pour Discord : mets ici les mêmes raccourcis que dans Discord › Paramètres › Raccourcis clavier, Lucie les tape à ta place." />
+                                   Text="Les commandes qui ne dépendent d'aucune appli : musique, volume, capture, liens, raccourcis Windows. Sépare plusieurs façons de le dire par /." />
                         <Border Style="{StaticResource Card}" Padding="16">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="Dernière phrase entendue" FontWeight="SemiBold" />
@@ -308,33 +386,38 @@
                             <StackPanel>
                                 <Grid ColumnSpacing="8" Padding="4,0,4,8">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="2*" />
-                                        <ColumnDefinition Width="1.5*" />
                                         <ColumnDefinition Width="1.6*" />
-                                        <ColumnDefinition Width="1.1*" />
-                                        <ColumnDefinition Width="40" />
+                                        <ColumnDefinition Width="1.2*" />
+                                        <ColumnDefinition Width="1.4*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="36" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Style="{StaticResource Hint}" Text="CE QUE TU DIS" />
-                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="ACTION" />
-                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="2" Text="RACCOURCI / APPLI / LIEN" />
-                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="3" Text="ARGUMENTS" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="1" Text="CE QUE LUCIE FAIT" />
+                                    <TextBlock Style="{StaticResource Hint}" Grid.Column="2" Text="DÉTAIL" />
                                 </Grid>
                                 <ItemsControl x:Name="CommandList">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Spacing="6" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="models:VoiceCommand">
                                             <Grid ColumnSpacing="8" Padding="4">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="2*" />
-                                                    <ColumnDefinition Width="1.5*" />
                                                     <ColumnDefinition Width="1.6*" />
-                                                    <ColumnDefinition Width="1.1*" />
-                                                    <ColumnDefinition Width="40" />
+                                                    <ColumnDefinition Width="1.2*" />
+                                                    <ColumnDefinition Width="1.4*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="36" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBox Text="{x:Bind Phrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="ouvre discord" />
-                                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch"
+                                                <TextBox Text="{x:Bind Phrase, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                         PlaceholderText="lance la musique" VerticalAlignment="Top" />
+                                                <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Top"
                                                           SelectedIndex="{x:Bind ActionIndex, Mode=TwoWay}">
-                                                    <x:String>Ouvrir un lien / programme</x:String>
-                                                    <x:String>Raccourci clavier</x:String>
+                                                    <x:String>Ouvrir un lien / fichier</x:String>
+                                                    <x:String>Taper un raccourci</x:String>
                                                     <x:String>Capture d'écran</x:String>
                                                     <x:String>Lecture / pause</x:String>
                                                     <x:String>Morceau suivant</x:String>
@@ -345,11 +428,17 @@
                                                     <x:String>Baisser le son</x:String>
                                                     <x:String>Couper / remettre le son</x:String>
                                                 </ComboBox>
-                                                <TextBox Grid.Column="2" Text="{x:Bind Target, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Ctrl+Maj+M" />
-                                                <TextBox Grid.Column="3" Text="{x:Bind Arguments, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="(facultatif)" />
-                                                <Button Grid.Column="4" Width="36" Height="36" Padding="0" Background="Transparent" BorderThickness="0"
+                                                <Grid Grid.Column="2">
+                                                    <views:ShortcutRecorder Keys="{x:Bind Target, Mode=TwoWay}" Visibility="{x:Bind ShowKeys, Mode=OneWay}" />
+                                                    <TextBox Text="{x:Bind Target, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Top"
+                                                             PlaceholderText="https://…" Visibility="{x:Bind ShowTarget, Mode=OneWay}" />
+                                                </Grid>
+                                                <Button Grid.Column="3" Content="Tester" VerticalAlignment="Top"
+                                                        Tag="{x:Bind}" Click="TestCommand_Click" />
+                                                <Button Grid.Column="4" Width="36" Height="32" Padding="0" VerticalAlignment="Top"
+                                                        Background="Transparent" BorderThickness="0"
                                                         Tag="{x:Bind}" Click="DeleteCommand_Click" ToolTipService.ToolTip="Supprimer">
-                                                    <FontIcon Glyph="&#xE74D;" FontSize="14" />
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="13" />
                                                 </Button>
                                             </Grid>
                                         </DataTemplate>

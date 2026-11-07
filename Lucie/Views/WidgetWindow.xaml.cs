@@ -77,7 +77,7 @@ public sealed partial class WidgetWindow : Window
     public WidgetWindow()
     {
         InitializeComponent();
-        Title = "Lucie";
+        Title = "";   // aucun titre : rien à dessiner
 
         _hwnd = WindowNative.GetWindowHandle(this);
         _dispatcher = DispatcherQueue.GetForCurrentThread();
@@ -180,6 +180,11 @@ public sealed partial class WidgetWindow : Window
     {
         // Zone cliente = fenêtre entière (aucune bordure, même invisible).
         if (msg == Win32.WM_NCCALCSIZE && wParam != IntPtr.Zero) return IntPtr.Zero;
+        // Windows ne doit jamais dessiner de cadre ni de titre par-dessus le widget
+        // (sinon « Lucie » et une barre blanche apparaissent quand elle n'est pas active).
+        if (msg == 0x0085 /* WM_NCPAINT */) return IntPtr.Zero;
+        if (msg == 0x0086 /* WM_NCACTIVATE */) return new IntPtr(1);
+        if (msg == 0x00AE /* WM_NCUAHDRAWCAPTION */ || msg == 0x00AF /* WM_NCUAHDRAWFRAME */) return IntPtr.Zero;
         return Win32.DefSubclassProc(hWnd, msg, wParam, lParam);
     }
 
@@ -576,21 +581,17 @@ public sealed partial class WidgetWindow : Window
         }
 
         bool ok;
-        if (intent.App is AppEntry app)
-        {
-            ok = await App.Actions.OpenAppAsync(app);
-        }
-        else if (intent.Command!.Action == CommandAction.Screenshot)
+        if (intent.App is null && intent.ShortcutApp is null && intent.Command?.Action == CommandAction.Screenshot)
         {
             // On se cache le temps de la capture pour ne pas apparaître dessus.
             AppWindow.Hide();
             await Task.Delay(180);
-            ok = await App.Actions.ExecuteAsync(intent.Command);
+            ok = await App.Actions.RunAsync(intent);
             AppWindow.Show(false);
         }
         else
         {
-            ok = await App.Actions.ExecuteAsync(intent.Command);
+            ok = await App.Actions.RunAsync(intent);
         }
 
         if (ok)
