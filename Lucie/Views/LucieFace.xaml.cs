@@ -3,6 +3,7 @@ using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Lucie.Services;
 
 namespace Lucie.Views;
 
@@ -41,6 +42,11 @@ public sealed partial class LucieFace : UserControl
     private double _blinkStart = -1;
     private bool _doubleBlink;
 
+    // Réaction en cours (clin d'œil, cœur…)
+    private Reaction? _reaction;
+    private double _reactionStart;
+    private double _reactionEnd;
+
     // En musique : de temps en temps elle ferme les yeux pour savourer
     private double _nextSquint = 4;
     private double _squintUntil = -1;
@@ -48,7 +54,7 @@ public sealed partial class LucieFace : UserControl
     public LucieFace()
     {
         InitializeComponent();
-        _layers = new UIElement[] { Headphones, NormalEyes, HappyEyes, SleepEyes };
+        _layers = new UIElement[] { Headphones, NormalEyes, HappyEyes, SleepEyes, WinkEyes, HeartEyes, Blush };
         UpdateLayerTargets(0);
         foreach (var layer in _layers) layer.Opacity = _targets[layer];
 
@@ -72,6 +78,33 @@ public sealed partial class LucieFace : UserControl
 
     /// <summary>Direction du regard (-1..1), ou null pour la laisser vivre sa vie.</summary>
     public void SetGaze(Vector2? gaze) => _externalGaze = gaze;
+
+    /// <summary>Joue une petite réaction (clin d'œil, cœur, hochement…). Renvoie sa durée.</summary>
+    public TimeSpan React(Reaction reaction)
+    {
+        double now = _clock.Elapsed.TotalSeconds;
+        double duration = reaction switch
+        {
+            Reaction.Love => 2.6,
+            Reaction.Sleepy => 3.4,
+            Reaction.Blush => 2.2,
+            Reaction.Nod or Reaction.Shake => 1.4,
+            Reaction.Wink => 1.5,
+            _ => 1.8
+        };
+        _reaction = reaction;
+        _reactionStart = now;
+        _reactionEnd = now + duration;
+        _actionUntil = -1;
+        if (reaction is Reaction.Surprised or Reaction.Love) _eyeScaleVel += 6;
+        return TimeSpan.FromSeconds(duration);
+    }
+
+    private Reaction? ActiveReaction(double now)
+    {
+        if (_reaction is not null && now > _reactionEnd) _reaction = null;
+        return _reaction;
+    }
 
     /// <summary>Fait cligner des yeux tout de suite (petite réaction).</summary>
     public void Blink()
@@ -103,6 +136,26 @@ public sealed partial class LucieFace : UserControl
             FaceMood.Listening => 1.1,
             _ => 1.0
         };
+
+        if (ActiveReaction(now) is Reaction react)
+        {
+            double t = now - _reactionStart;
+            (_gazeTarget, _tiltTarget) = react switch
+            {
+                Reaction.Wink => (new Vector2(0.15f, -0.2f), 9.0),
+                Reaction.Greet => (new Vector2(0, -0.3f), -8.0),
+                Reaction.Happy => (new Vector2(0, -0.35f), 0.0),
+                Reaction.Blush => (new Vector2(-0.3f, 0.45f), -7.0),              // regarde en bas, gênée
+                Reaction.Love => (new Vector2(0, -0.2f), Math.Sin(t * 2 * Math.PI / 1.3) * 6),
+                Reaction.Sleepy => (new Vector2(0, 0.4f), -8.0),
+                Reaction.Surprised => (new Vector2(0, -0.4f), 0.0),
+                Reaction.Confused => (new Vector2(0.4f, -0.3f), 12.0),
+                _ => (Vector2.Zero, 0.0)
+            };
+            if (react == Reaction.Surprised) _eyeScaleTarget = 1.3;
+            if (react == Reaction.Confused) _eyeScaleTarget = 0.92;
+            return;
+        }
 
         if (_externalGaze is Vector2 g)
         {
@@ -264,13 +317,24 @@ public sealed partial class LucieFace : UserControl
     private void UpdateLayerTargets(double now)
     {
         bool squint = _squintUntil > 0 && now < _squintUntil;
-        bool happy = _mood == FaceMood.Done
-                     || ((Happy || squint) && _mood is FaceMood.Idle or FaceMood.Wow or FaceMood.Music);
+        var r = ActiveReaction(now);
+        double rt = now - _reactionStart;
+
+        bool sleep = _mood == FaceMood.Sleep || (r == Reaction.Sleepy && rt > 0.6);
+        bool wink = r == Reaction.Wink && rt > 0.12 && rt < 1.0;
+        bool heart = r == Reaction.Love;
+        bool happy = !sleep && !wink && !heart &&
+                     (_mood == FaceMood.Done
+                      || r is Reaction.Happy or Reaction.Greet or Reaction.Blush
+                      || (r is null && (Happy || squint) && _mood is FaceMood.Idle or FaceMood.Wow or FaceMood.Music));
 
         _targets[Headphones] = _mood == FaceMood.Music ? 1 : 0;
-        _targets[SleepEyes] = _mood == FaceMood.Sleep ? 1 : 0;
-        _targets[HappyEyes] = happy && _mood != FaceMood.Sleep ? 1 : 0;
-        _targets[NormalEyes] = !happy && _mood != FaceMood.Sleep ? 1 : 0;
+        _targets[SleepEyes] = sleep ? 1 : 0;
+        _targets[WinkEyes] = wink ? 1 : 0;
+        _targets[HeartEyes] = heart ? 1 : 0;
+        _targets[Blush] = r is Reaction.Blush or Reaction.Love ? 1 : 0;
+        _targets[HappyEyes] = happy ? 1 : 0;
+        _targets[NormalEyes] = !happy && !sleep && !wink && !heart ? 1 : 0;
     }
 
     private void Apply(double now, double blink)
@@ -290,15 +354,50 @@ public sealed partial class LucieFace : UserControl
                 break;
         }
 
-        HeadShift.X = _gaze.X * 4.2;
-        HeadShift.Y = _gaze.Y * 2.6 + bob;
-        HeadRotate.Angle = _tilt;
+        // Mouvements propres à la réaction en cours
+        double rx = 0, ry = 0, rrot = 0;
+        if (ActiveReaction(now) is Reaction motion)
+        {
+            double t = now - _reactionStart;
+            double fade = Math.Clamp((_reactionEnd - now) / 0.4, 0, 1);   // s'arrête en douceur
+            switch (motion)
+            {
+                case Reaction.Nod:
+                    ry = Math.Sin(t * 2 * Math.PI * 2.4) * 2.4 * fade;            // oui de la tête
+                    break;
+                case Reaction.Shake:
+                    rx = Math.Sin(t * 2 * Math.PI * 3.0) * 3.2 * fade;            // non de la tête
+                    rrot = Math.Sin(t * 2 * Math.PI * 3.0) * 5 * fade;
+                    break;
+                case Reaction.Happy:
+                case Reaction.Greet:
+                    ry = -Math.Abs(Math.Sin(t * Math.PI * 2.6)) * 3.0 * fade;     // petits sauts de joie
+                    break;
+                case Reaction.Wink:
+                    ry = t < 0.5 ? -Math.Sin(t / 0.5 * Math.PI) * 1.5 : 0;
+                    break;
+                case Reaction.Love:
+                    ry = Math.Sin(t * 2 * Math.PI / 1.3) * 1.0;
+                    double pulse = 1 + Math.Max(0, Math.Sin(t * 2 * Math.PI * 1.4)) * 0.12;
+                    HeartScale.ScaleX = HeartScale.ScaleY = pulse;                 // cœurs qui battent
+                    break;
+                case Reaction.Surprised:
+                    ry = t < 0.25 ? -t / 0.25 * 2.5 : -2.5 * fade;
+                    break;
+            }
+        }
+
+        HeadShift.X = _gaze.X * 4.2 + rx;
+        HeadShift.Y = _gaze.Y * 2.6 + bob + ry;
+        HeadRotate.Angle = _tilt + rrot;
         HeadScale.ScaleY = breath;
 
         EyesShift.X = _gaze.X * 1.9;
         EyesShift.Y = _gaze.Y * 1.5;
         HappyShift.X = _gaze.X * 1.4;
         HappyShift.Y = _gaze.Y * 1.0;
+        WinkShift.X = HeartShift.X = _gaze.X * 1.6;
+        WinkShift.Y = HeartShift.Y = _gaze.Y * 1.2;
 
         // Les yeux s'étirent dans le sens du mouvement quand ils bougent vite.
         double sx = 1 + Math.Min(0.22, Math.Abs(_gazeVel.X) * 0.02);

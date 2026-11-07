@@ -38,6 +38,12 @@
                     <Rectangle Canvas.Left="46.4" Canvas.Top="20" Width="2" Height="8" RadiusX="1" RadiusY="1" Fill="{StaticResource LucieAccent}" />
                 </Canvas>
 
+                <!-- Joues roses (gênée, amoureuse) -->
+                <Canvas x:Name="Blush" Opacity="0">
+                    <Ellipse Canvas.Left="11.5" Canvas.Top="25" Width="8" Height="4" Fill="#FF8FAB" Opacity="0.55" />
+                    <Ellipse Canvas.Left="36.5" Canvas.Top="25" Width="8" Height="4" Fill="#FF8FAB" Opacity="0.55" />
+                </Canvas>
+
                 <!-- Yeux ouverts, avec un halo lumineux doux -->
                 <Canvas x:Name="NormalEyes">
                     <Canvas.RenderTransform>
@@ -61,6 +67,28 @@
                     </Canvas.RenderTransform>
                     <Path Style="{StaticResource Line}" Data="M16.5,22 Q19.75,16.5 23,22" />
                     <Path Style="{StaticResource Line}" Data="M33,22 Q36.25,16.5 39.5,22" />
+                </Canvas>
+
+                <!-- Clin d'œil : œil gauche ouvert, œil droit fermé -->
+                <Canvas x:Name="WinkEyes" Opacity="0">
+                    <Canvas.RenderTransform>
+                        <TranslateTransform x:Name="WinkShift" />
+                    </Canvas.RenderTransform>
+                    <Rectangle Canvas.Left="14.5" Canvas.Top="12" Width="10.5" Height="16" RadiusX="5.25" RadiusY="5.25" Fill="#FFFFFF" Opacity="0.07" />
+                    <Rectangle Canvas.Left="16.75" Canvas.Top="14.75" Width="6" Height="10.5" RadiusX="3" RadiusY="3" Fill="#D6D9E0" />
+                    <Path Style="{StaticResource Line}" Data="M33,21.5 Q36.25,17.5 39.5,21.5" />
+                </Canvas>
+
+                <!-- Yeux en cœur -->
+                <Canvas x:Name="HeartEyes" Opacity="0">
+                    <Canvas.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform x:Name="HeartScale" CenterX="28" CenterY="20" />
+                            <TranslateTransform x:Name="HeartShift" />
+                        </TransformGroup>
+                    </Canvas.RenderTransform>
+                    <Path Fill="#FF8FAB" Data="M19.75,24.5 C14.5,20.8 15,15.5 17.8,15.5 C19,15.5 19.6,16.4 19.75,17 C19.9,16.4 20.5,15.5 21.7,15.5 C24.5,15.5 25,20.8 19.75,24.5 Z" />
+                    <Path Fill="#FF8FAB" Data="M36.25,24.5 C31,20.8 31.5,15.5 34.3,15.5 C35.5,15.5 36.1,16.4 36.25,17 C36.4,16.4 37,15.5 38.2,15.5 C41,15.5 41.5,20.8 36.25,24.5 Z" />
                 </Canvas>
 
                 <!-- Yeux fermés de sommeil -->

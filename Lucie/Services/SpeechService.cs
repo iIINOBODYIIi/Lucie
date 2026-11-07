@@ -284,8 +284,18 @@ public sealed class SpeechService : IDisposable
 
     private string AfterName(string[] words, int nameIndex)
     {
-        var rest = nameIndex >= 0 ? words.Skip(nameIndex + _name.Length) : words;
-        return string.Join(' ', rest.SkipWhile(Greetings.Contains));
+        if (nameIndex < 0)
+        {
+            // Pas de nom (après le bip) : « bonjour » tout seul reste une vraie phrase.
+            var all = string.Join(' ', words.SkipWhile(Greetings.Contains));
+            return all.Length > 0 ? all : string.Join(' ', words);
+        }
+
+        var after = string.Join(' ', words.Skip(nameIndex + _name.Length).SkipWhile(Greetings.Contains));
+        if (after.Length > 0) return after;
+
+        // « Salut, comment tu vas Lucie ? » : la phrase est avant son nom.
+        return string.Join(' ', words.Take(nameIndex).SkipWhile(Greetings.Contains));
     }
 
     private static string[] Words(string text) =>

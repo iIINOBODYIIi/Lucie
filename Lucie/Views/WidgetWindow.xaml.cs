@@ -58,6 +58,7 @@ public sealed partial class WidgetWindow : Window
     private bool _flyoutOpen;
     private bool _menuOpen;
     private DateTime _doneUntil;
+    private DateTime _reactUntil;     // petite réaction en cours (clin d'œil, cœur…)
     private DateTime _listenStarted;
     private DateTime _collapseAt = DateTime.MaxValue;
     private FaceMood _appliedMood = FaceMood.Idle;
@@ -598,7 +599,17 @@ public sealed partial class WidgetWindow : Window
         var intent = App.Interpreter.Interpret(heard, App.Settings.Current);
         if (intent is null)
         {
+            // Pas compris : elle penche la tête, perplexe.
             App.Sounds.PlayError();
+            React(Services.Reaction.Confused);
+            return;
+        }
+
+        if (intent.React is Services.Reaction reaction)
+        {
+            // Petite conversation : pas d'action, juste une réaction.
+            App.Sounds.PlayReaction(reaction);
+            React(reaction);
             return;
         }
 
@@ -626,6 +637,13 @@ public sealed partial class WidgetWindow : Window
         {
             App.Sounds.PlayError();
         }
+    }
+
+    private void React(Services.Reaction reaction)
+    {
+        var duration = Face.React(reaction);
+        _reactUntil = DateTime.Now + duration;
+        UpdateVisibility();   // rangée, elle réapparaît le temps de réagir
     }
 
     // ───────────────────────── Vie du widget ─────────────────────────
@@ -726,6 +744,7 @@ public sealed partial class WidgetWindow : Window
     private FaceMood ResolveMood()
     {
         if (_listening) return FaceMood.Listening;
+        if (DateTime.Now < _reactUntil) return FaceMood.Idle;
         if (DateTime.Now < _doneUntil) return FaceMood.Done;
         if (App.Media.IsPlaying) return FaceMood.Music;
         if (_sleeping && !_near) return FaceMood.Sleep;
@@ -844,7 +863,7 @@ public sealed partial class WidgetWindow : Window
     private void UpdateVisibility()
     {
         var s = App.Settings.Current;
-        bool talking = _listening || DateTime.Now < _doneUntil;
+        bool talking = _listening || DateTime.Now < _doneUntil || DateTime.Now < _reactUntil;
         bool show = !_fullscreen && (!s.WidgetHidden || talking);
         if (show == _shown && AppWindow.IsVisible == show) return;
 

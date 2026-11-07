@@ -60,6 +60,24 @@ Windows 10 / 11 · 64-bit · free · works offline
 | « Coupe mon micro » | toggles your Discord microphone |
 | « Mets-moi en sourdine » | toggles Discord deafen |
 
+### Just chatting
+
+Lucie has no voice, so she answers with her face and a soft sound:
+
+| Say… | Lucie… |
+| --- | --- |
+| « Salut, comment tu vas Lucie ? » · « Ça va ? » | winks 😉 |
+| « Ça va bien » · « Super » | happy little jumps |
+| « Bonjour » · « Coucou » | waves with a happy face |
+| « Merci » · « Bravo » · « T'es la meilleure » | blushes |
+| « Je t'aime » · « T'es mignonne » | heart eyes 😍 |
+| « Oui » · « Tu m'entends ? » | nods |
+| « Non » · « T'es nulle » | shakes her head |
+| « Bonne nuit » | yawns and falls asleep |
+| « Réveille-toi » · « Regarde » | surprised big eyes |
+
+When she doesn't understand, she tilts her head, puzzled.
+
 ### Discord setup
 
 Discord has no default shortcut for mute and deafen. In **Discord › Settings › Keybinds**, add:

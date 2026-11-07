@@ -8,7 +8,7 @@ namespace Lucie.Services;
 /// Ce que Lucie a compris : une commande, une appli à ouvrir / montrer,
 /// ou le raccourci d'une appli (Command + ShortcutApp).
 /// </summary>
-public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null);
+public sealed record Intent(VoiceCommand? Command, AppEntry? App, AppEntry? ShortcutApp = null, Reaction? React = null);
 
 /// <summary>
 /// Transforme une phrase entendue en action.
@@ -60,7 +60,10 @@ public sealed class CommandInterpreter
         var (command, score) = BestCommand(text, words, all);
         if (command is not null && score >= 1.0) return Make(command);
 
-        // 2. « Ouvre / montre-moi » + une appli enregistrée
+        // 2. Une petite conversation (« comment tu vas ? », « merci »…) : juste une réaction
+        if (SmallTalk.Match(text) is Reaction reaction) return new Intent(null, null, null, reaction);
+
+        // 3. « Ouvre / montre-moi » + une appli enregistrée
         int verb = words.FindIndex(OpenVerbs.Contains);
         if (verb >= 0)
         {
@@ -70,7 +73,7 @@ public sealed class CommandInterpreter
                 var app = BestApp(name, settings.Apps);
                 if (app is not null) return new Intent(null, app);
 
-                // 3. Une commande approchante, sinon le menu Démarrer
+                // 4. Une commande approchante, sinon le menu Démarrer
                 if (command is not null && score >= 0.66) return Make(command);
                 var startMenu = AppLauncher.FindStartMenuApp(name);
                 if (startMenu is not null) return new Intent(null, startMenu);

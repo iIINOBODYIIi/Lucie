@@ -22,6 +22,35 @@ public sealed class SoundService
 
     public SoundService(SettingsService settings) => _settings = settings;
 
+    private static readonly (double Freq, double Start, double Dur)[] HappyNotes =
+        { (659.25, 0.00, 0.08), (783.99, 0.08, 0.08), (1046.5, 0.16, 0.18) };   // trois notes qui montent
+
+    private static readonly (double Freq, double Start, double Dur)[] LoveNotes =
+        { (783.99, 0.00, 0.16), (987.77, 0.14, 0.16), (1174.66, 0.28, 0.28) };
+
+    private static readonly (double Freq, double Start, double Dur)[] ShyNotes =
+        { (880.00, 0.00, 0.10), (1046.5, 0.12, 0.22) };
+
+    private static readonly (double Freq, double Start, double Dur)[] NoNotes =
+        { (523.25, 0.00, 0.10), (493.88, 0.12, 0.10), (440.00, 0.24, 0.16) };
+
+    private static readonly (double Freq, double Start, double Dur)[] SleepyNotes =
+        { (659.25, 0.00, 0.30), (523.25, 0.32, 0.30), (392.00, 0.64, 0.50) };   // descend doucement
+
+    private static readonly (double Freq, double Start, double Dur)[] CuriousNotes =
+        { (587.33, 0.00, 0.10), (880.00, 0.10, 0.16) };
+
+    public void PlayReaction(Reaction reaction) => Play(reaction switch
+    {
+        Reaction.Love => LoveNotes,
+        Reaction.Blush => ShyNotes,
+        Reaction.Shake => NoNotes,
+        Reaction.Sleepy => SleepyNotes,
+        Reaction.Confused or Reaction.Surprised => CuriousNotes,
+        Reaction.Nod => WakeNotes,
+        _ => HappyNotes
+    });
+
     public void PlayWake() => Play(WakeNotes);
     public void PlayDone() => Play(DoneNotes);
     public void PlayError() => Play(ErrorNotes);
