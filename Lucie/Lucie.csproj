@@ -37,7 +37,7 @@
     <!-- Le modèle vocal (voir README) est copié à côté de l'exe s'il est présent -->
     <None Include="VoiceModel\**" CopyToOutputDirectory="PreserveNewest" />
     <!-- Icône (fichier .exe, fenêtres, barre des tâches) -->
-    <None Include="Assets\LucieIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Assets\LucieIcon.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

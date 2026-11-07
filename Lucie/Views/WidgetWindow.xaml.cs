@@ -40,6 +40,8 @@ public sealed partial class WidgetWindow : Window
     private readonly HotkeyService _hotkeys;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private readonly Win32.SubclassProc _frameProc;   // gardé en mémoire tant que la fenêtre vit
+    private TrayIcon? _tray;
+    private bool _hidden;                              // widget masqué depuis la zone de notification
 
     private IRandomAccessStreamReference? _shownThumbnail;
 
@@ -85,6 +87,13 @@ public sealed partial class WidgetWindow : Window
         // Toute la fenêtre est « contenu » : Windows ne réserve aucun pixel pour un cadre.
         _frameProc = FrameProc;
         Win32.SetWindowSubclass(_hwnd, _frameProc, (UIntPtr)2, IntPtr.Zero);
+
+        // Icône dans la zone de notification (près de l'horloge)
+        _tray = new TrayIcon(_hwnd, App.Settings.Current.AssistantName,
+            System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "LucieIcon.ico"));
+        _tray.Clicked += () => _dispatcher.TryEnqueue(() => SetHidden(!_hidden));
+        _tray.DoubleClicked += () => _dispatcher.TryEnqueue(() => App.Current.OpenSettings());
+        _tray.MenuRequested += ShowTrayMenu;
 
         SetupChrome();
         SystemBackdrop = new WinUIEx.TransparentTintBackdrop { TintColor = Colors.Transparent };
@@ -135,7 +144,11 @@ public sealed partial class WidgetWindow : Window
         });
 
         // Paramètres
-        App.Settings.Changed += (_, _) => _dispatcher.TryEnqueue(ApplySettings);
+        App.Settings.Changed += (_, _) => _dispatcher.TryEnqueue(() =>
+        {
+            ApplySettings();
+            _tray?.SetTooltip(App.Settings.Current.AssistantName);
+        });
 
         // Quand l'affichage est prêt (ou change d'écran / de mise à l'échelle), on recale tout.
         Root.Loaded += (_, _) =>
@@ -155,6 +168,8 @@ public sealed partial class WidgetWindow : Window
             _tick.Stop();
             _dragTimer.Stop();
             _hotkeys.Dispose();
+            _tray?.Dispose();
+            _tray = null;
         };
     }
 
@@ -180,6 +195,7 @@ public sealed partial class WidgetWindow : Window
     {
         // Zone cliente = fenêtre entière (aucune bordure, même invisible).
         if (msg == Win32.WM_NCCALCSIZE && wParam != IntPtr.Zero) return IntPtr.Zero;
+        if (_tray?.HandleMessage(msg, lParam) == true) return IntPtr.Zero;
         // Windows ne doit jamais dessiner de cadre ni de titre par-dessus le widget
         // (sinon « Lucie » et une barre blanche apparaissent quand elle n'est pas active).
         if (msg == 0x0085 /* WM_NCPAINT */) return IntPtr.Zero;
@@ -587,7 +603,7 @@ public sealed partial class WidgetWindow : Window
             AppWindow.Hide();
             await Task.Delay(180);
             ok = await App.Actions.RunAsync(intent);
-            AppWindow.Show(false);
+            if (!_hidden) AppWindow.Show(false);
         }
         else
         {
@@ -795,6 +811,54 @@ public sealed partial class WidgetWindow : Window
         s.CustomX = s.AnchorX < 0 ? left + bw / 2 : s.AnchorX > 0 ? left + width - bw / 2 : cx;
         s.CustomY = s.AnchorY > 0 ? top + height - bh / 2 : top + bh / 2;
         App.Settings.Save();
+    }
+
+    // ───────────────────────── Zone de notification ─────────────────────────
+
+    /// <summary>Masque ou réaffiche le widget (Lucie continue d'écouter quand il est masqué).</summary>
+    private void SetHidden(bool hidden)
+    {
+        _hidden = hidden;
+        if (hidden)
+        {
+            _hover = false;
+            AppWindow.Hide();
+        }
+        else
+        {
+            AppWindow.Show(false);
+            Face.Blink();
+        }
+    }
+
+    private void ShowTrayMenu()
+    {
+        var name = App.Settings.Current.AssistantName;
+        var entries = new List<MenuEntry>
+        {
+            new($"Parler à {name}"),
+            new(_hidden ? "Afficher le widget" : "Masquer le widget"),
+            new("Couper le micro", Checked: App.Speech.Muted),
+            MenuEntry.Line,
+            new("Paramètres…"),
+            new("Quitter"),
+        };
+
+        int chosen = _tray?.ShowMenu(entries) ?? -1;
+        _dispatcher.TryEnqueue(() =>
+        {
+            switch (chosen)
+            {
+                case 0: App.Speech.ListenNow(); break;
+                case 1: SetHidden(!_hidden); break;
+                case 2:
+                    App.Speech.Muted = !App.Speech.Muted;
+                    UpdateMicButton();
+                    break;
+                case 4: App.Current.OpenSettings(); break;
+                case 5: App.Current.Quit(); break;
+            }
+        });
     }
 
     private void ShowMenu()
