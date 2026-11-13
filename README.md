@@ -29,8 +29,9 @@ Windows 10 / 11 · 64-bit · free · works offline
 - **🎵 Music and volume**: play, pause, next, previous, volume up, down or mute. Works with Spotify, Apple Music, Cider, your browser, and more.
 - **🎧 Live player**: when a song starts, the widget stretches to show the cover, title and controls, then tucks itself away.
 - **🎮 Discord and Game Bar**: mute your mic, deafen yourself, start a screen recording, take a screenshot.
+- **💜 “Listening to Lucie” on Discord**: your profile shows the song you're playing (title, artist, cover, progress bar and a button to listen), from Apple Music, your browser, VLC… or your iPhone over AirPlay.
 - **👀 She feels alive**: she breathes, blinks, glances around, says *“wow”* and follows your mouse when it gets close, puts her headphones on when music plays, and falls asleep with little Z's when your PC is idle.
-- **🔒 Private**: speech recognition runs **100 % offline** on your PC. Nothing is sent to the internet.
+- **🔒 Private**: speech recognition runs **100 % offline** on your PC. Your voice never leaves it. (Only if you turn on the Discord status, the song title and artist are looked up in Apple's public music catalog to find the cover.)
 
 ## 🔊 AirPlay speaker
 
@@ -104,6 +105,8 @@ When she doesn't understand, she tilts her head, puzzled.
 **Recommended: connect Lucie to Discord** (*Settings › Discord*). She then mutes / unmutes your mic, deafens / undeafens and leaves the voice channel directly, through Discord's official local API — no keyboard shortcuts needed, and you can say exactly what you want (« Coupe mon micro » *or* « Réactive mon micro »).
 
 Discord only lets registered apps control your microphone, so you create your own free Discord application once (2 minutes, guided in the settings): copy its *Client ID* and *Client Secret*, add `http://localhost` as a redirect, click **Connect**, then **Authorize** in Discord. Credentials are encrypted with your Windows account.
+
+**Show what you're listening to.** With just the *Client ID* (no authorization needed), Lucie sets your Discord status to *Listening to Lucie* with the song title, artist, album cover, a progress bar and an *Écouter sur Apple Music* button. Turn it on or off in *Settings › Discord*, choose whether the member list shows "Lucie" or the song title, and skip Spotify (which already shows its own status). To show Lucie's logo next to the cover, upload her icon as `lucie` in your Discord application's *Rich Presence › Art Assets*.
 
 **Without connecting**, Lucie uses keyboard shortcuts instead. In **Discord › Settings › Keybinds**, add:
 

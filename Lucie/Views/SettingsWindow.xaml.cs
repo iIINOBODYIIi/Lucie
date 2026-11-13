@@ -146,6 +146,12 @@ public sealed partial class SettingsWindow : Window
         var d = App.Discord;
         DiscordIdBox.Text = d.ClientId;
         DiscordEnabledSwitch.IsOn = d.Enabled;
+        _loadingPresence = true;
+        PresenceSwitch.IsOn = d.PresenceEnabled;
+        PresenceTitleSwitch.IsOn = d.PresenceShowTitle;
+        PresenceSpotifySwitch.IsOn = d.PresenceSkipSpotify;
+        _loadingPresence = false;
+        PresenceTitleSwitch.IsEnabled = PresenceSpotifySwitch.IsEnabled = d.PresenceEnabled;
 
         Windows.UI.Color dot;
         if (d.IsConnected)
@@ -216,6 +222,18 @@ public sealed partial class SettingsWindow : Window
     private void DiscordEnabled_Toggled(object sender, RoutedEventArgs e)
     {
         if (App.Discord.Enabled != DiscordEnabledSwitch.IsOn) App.Discord.Enabled = DiscordEnabledSwitch.IsOn;
+    }
+
+    private bool _loadingPresence;
+
+    private void Presence_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_loadingPresence) return;   // on remplit les interrupteurs, ce n'est pas un clic
+        var d = App.Discord;
+        if (d.PresenceEnabled != PresenceSwitch.IsOn) d.PresenceEnabled = PresenceSwitch.IsOn;
+        if (d.PresenceShowTitle != PresenceTitleSwitch.IsOn) d.PresenceShowTitle = PresenceTitleSwitch.IsOn;
+        if (d.PresenceSkipSpotify != PresenceSpotifySwitch.IsOn) d.PresenceSkipSpotify = PresenceSpotifySwitch.IsOn;
+        PresenceTitleSwitch.IsEnabled = PresenceSpotifySwitch.IsEnabled = PresenceSwitch.IsOn;
     }
 
     private async void DiscordTest_Click(object sender, RoutedEventArgs e)

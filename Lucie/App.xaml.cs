@@ -20,6 +20,8 @@ public partial class App : Application
     public static AirPlayService AirPlay { get; private set; } = null!;
     /// <summary>Connexion directe à Discord (micro, sourdine, vocal).</summary>
     public static DiscordService Discord { get; private set; } = null!;
+    /// <summary>Statut « Écoute » sur le profil Discord.</summary>
+    public static DiscordPresence Presence { get; private set; } = null!;
 
     public static new App Current => (App)Application.Current;
     public static SolidColorBrush Accent => (SolidColorBrush)Application.Current.Resources["LucieAccent"];
@@ -80,6 +82,7 @@ public partial class App : Application
             UpdateAirPlayWidget();
 
             await Media.InitializeAsync();
+            Presence = new DiscordPresence(Media, Discord);
             Speech.Start();
 
             // Premier lancement sans modèle vocal : on ouvre les paramètres pour expliquer quoi faire.
@@ -142,7 +145,8 @@ public partial class App : Application
     public void Quit()
     {
         Speech?.Dispose();
-        Discord?.Dispose();
+        Presence?.Dispose();
+        Discord?.Dispose();   // fermer le tube efface aussi le statut « Écoute »
         try { _airPlayWindow?.Close(); } catch { }
         AirPlay?.Dispose();
         _settingsWindow?.Close();

@@ -20,11 +20,28 @@ public sealed class MediaService
     public bool IsPlaying { get; private set; }
     public string Title { get; private set; } = "";
     public string Artist { get; private set; } = "";
+    public string Album { get; private set; } = "";
+    /// <summary>Identifiant Windows de l'appli qui joue (ex. « Spotify.exe », « AppleInc.AppleMusicWin_… »).</summary>
+    public string SourceApp { get; private set; } = "";
     public IRandomAccessStreamReference? Thumbnail { get; private set; }
     public TimeSpan Position { get; private set; }
     public TimeSpan Duration { get; private set; }
 
     public bool HasTrack => Title.Length > 0;
+
+    /// <summary>Position estimée maintenant (la dernière position connue + le temps écoulé depuis).</summary>
+    public TimeSpan EstimatedPosition
+    {
+        get
+        {
+            var position = Position;
+            if (IsPlaying && _positionUpdated.Year > 2000)
+                position += DateTimeOffset.Now - _positionUpdated;
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+            if (Duration > TimeSpan.Zero && position > Duration) position = Duration;
+            return position;
+        }
+    }
 
     /// <summary>Avancement du morceau entre 0 et 1, estimé entre deux mises à jour.</summary>
     public double Progress
@@ -66,12 +83,13 @@ public sealed class MediaService
         if (_session is null)
         {
             IsPlaying = false;
-            Title = Artist = "";
+            Title = Artist = Album = SourceApp = "";
             Thumbnail = null;
             Changed?.Invoke();
             return;
         }
 
+        try { SourceApp = _session.SourceAppUserModelId ?? ""; } catch { SourceApp = ""; }
         _session.MediaPropertiesChanged += OnProperties;
         _session.PlaybackInfoChanged += OnPlayback;
         _session.TimelinePropertiesChanged += OnTimeline;
@@ -94,6 +112,7 @@ public sealed class MediaService
             var props = await session.TryGetMediaPropertiesAsync();
             Title = props.Title ?? "";
             Artist = props.Artist ?? "";
+            Album = props.AlbumTitle ?? "";
             Thumbnail = props.Thumbnail;
 
             string key = Title + "|" + Artist;

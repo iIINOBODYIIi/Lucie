@@ -32,9 +32,13 @@ public sealed class DiscordService : IDisposable
     private Stored _stored = new();
 
     public string ClientId => _stored.ClientId;
+    /// <summary>Le statut « Écoute » n'a besoin que du Client ID (pas d'autorisation).</summary>
+    public bool HasClientId => _stored.ClientId.Length > 0;
     public bool HasCredentials => _stored.ClientId.Length > 0 && _stored.ClientSecret.Length > 0;
     public bool IsAuthorized => !string.IsNullOrEmpty(_stored.RefreshToken);
     public bool IsConnected => _authenticated && _pipe is { IsConnected: true };
+    /// <summary>Tube ouvert avec Discord (même sans autorisation, pour le statut « Écoute »).</summary>
+    public bool IsPipeConnected => _pipe is { IsConnected: true };
     public string? UserName { get; private set; }
     public string? LastError { get; private set; }
 
@@ -45,7 +49,29 @@ public sealed class DiscordService : IDisposable
         set { _stored.Enabled = value; Save(); }
     }
 
+    /// <summary>Afficher la musique en cours sur le profil Discord (statut « Écoute »).</summary>
+    public bool PresenceEnabled
+    {
+        get => _stored.PresenceEnabled;
+        set { _stored.PresenceEnabled = value; Save(); PresenceSettingsChanged?.Invoke(); }
+    }
+
+    /// <summary>Dans la liste des membres : le titre du morceau (true) ou « Écoute Lucie » (false).</summary>
+    public bool PresenceShowTitle
+    {
+        get => _stored.PresenceShowTitle;
+        set { _stored.PresenceShowTitle = value; Save(); PresenceSettingsChanged?.Invoke(); }
+    }
+
+    /// <summary>Ne rien afficher pour Spotify, qui a déjà son propre statut sur Discord.</summary>
+    public bool PresenceSkipSpotify
+    {
+        get => _stored.PresenceSkipSpotify;
+        set { _stored.PresenceSkipSpotify = value; Save(); PresenceSettingsChanged?.Invoke(); }
+    }
+
     public event Action? StatusChanged;
+    public event Action? PresenceSettingsChanged;
 
     private sealed class Stored
     {
@@ -56,6 +82,9 @@ public sealed class DiscordService : IDisposable
         public DateTime ExpiresUtc { get; set; }
         public bool Enabled { get; set; } = true;
         public string UserName { get; set; } = "";
+        public bool PresenceEnabled { get; set; } = true;
+        public bool PresenceShowTitle { get; set; }
+        public bool PresenceSkipSpotify { get; set; } = true;
     }
 
     public DiscordService()
@@ -73,12 +102,15 @@ public sealed class DiscordService : IDisposable
         if (clientId != _stored.ClientId)
         {
             // Nouvelle application : les anciens jetons ne valent plus rien.
+            Disconnect();
             _stored.AccessToken = _stored.RefreshToken = "";
             UserName = null;
         }
+        bool changed = clientId != _stored.ClientId;
         _stored.ClientId = clientId;
         if (clientSecret.Length > 0) _stored.ClientSecret = clientSecret;
         Save();
+        if (changed) PresenceSettingsChanged?.Invoke();   // renvoyer le statut « Écoute » avec la nouvelle appli
     }
 
     public void Forget()
@@ -300,6 +332,40 @@ public sealed class DiscordService : IDisposable
             LastError = ex.Message;
             Disconnect();
             return false;
+        }
+    }
+
+    // ───────────────────────── Statut « Écoute » ─────────────────────────
+
+    /// <summary>
+    /// Affiche une activité sur le profil Discord (null = l'effacer).
+    /// Ne demande que le Client ID : pas besoin d'avoir cliqué sur « Autoriser ».
+    /// </summary>
+    public async Task<bool> SetActivityAsync(JsonObject? activity)
+    {
+        if (!HasClientId) return false;
+
+        await _gate.WaitAsync();
+        try
+        {
+            if (!await OpenPipeAsync()) return false;
+
+            var args = new JsonObject { ["pid"] = Environment.ProcessId };
+            if (activity is not null) args["activity"] = activity;   // sans « activity », Discord efface le statut
+
+            var res = await SendAsync("SET_ACTIVITY", args, TimeSpan.FromSeconds(5));
+            if (res["evt"]?.GetValue<string>() == "ERROR") { LastError = ErrorText(res); return false; }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            LastError = "Discord ne répond pas : " + ex.Message;
+            Disconnect();
+            return false;
+        }
+        finally
+        {
+            _gate.Release();
         }
     }
 

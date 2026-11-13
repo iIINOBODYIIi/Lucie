@@ -288,6 +288,23 @@
                             </Grid>
                         </Border>
 
+                        <!-- Statut « Écoute » -->
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="Ta musique sur ton profil" FontWeight="SemiBold" />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                                           Text="Quand tu écoutes de la musique, ton profil Discord affiche « Écoute Lucie » avec le titre, l'artiste, la pochette, la barre de progression et un bouton pour écouter le morceau. Marche avec Apple Music, ton navigateur, VLC… et ton iPhone en AirPlay. Il suffit du Client ID (étapes 1 à 3 ci-dessous)." />
+                                <ToggleSwitch x:Name="PresenceSwitch" Header="Afficher ce que j'écoute"
+                                              OnContent="Oui" OffContent="Non" Toggled="Presence_Toggled" />
+                                <ToggleSwitch x:Name="PresenceTitleSwitch" Header="Dans la liste des membres, afficher le titre du morceau au lieu de « Lucie »"
+                                              OnContent="Le titre" OffContent="« Écoute Lucie »" Toggled="Presence_Toggled" />
+                                <ToggleSwitch x:Name="PresenceSpotifySwitch" Header="Ignorer Spotify (il affiche déjà son propre statut)"
+                                              OnContent="Oui" OffContent="Non" Toggled="Presence_Toggled" />
+                                <TextBlock Style="{StaticResource Hint}" FontSize="13"
+                                           Text="Pour voir le logo de Lucie à côté de la pochette : sur le portail développeur, ouvre ton application › « Rich Presence » › « Art Assets », ajoute l'icône de Lucie et nomme-la lucie." />
+                            </StackPanel>
+                        </Border>
+
                         <!-- Mise en place -->
                         <Border Style="{StaticResource Card}">
                             <StackPanel Spacing="14">
